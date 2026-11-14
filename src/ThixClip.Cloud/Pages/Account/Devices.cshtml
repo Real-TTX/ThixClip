@@ -1,0 +1,45 @@
+@page "/Account/Devices"
+@model ThixClip.Cloud.Pages.Account.DevicesModel
+@{
+    ViewData["Title"] = "Konto";
+    ViewData["PageSub"] = "Die PCs und Macs, die mit diesem Konto synchronisieren";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Konto", "/Account"), ("Geräte", null) };
+}
+
+<partial name="_AccountTabs" model="@("devices")" />
+
+<div class="mat-list">
+    <partial name="_Toolbar" model="Model.Toolbar" />
+
+    @if (Model.Items.Count == 0)
+    {
+        <partial name="_Empty" model="@(new EmptyStateModel("monitor", Model.Toolbar.Total == 0 ? "Noch kein Gerät" : "Nichts gefunden",
+            Model.Toolbar.Total == 0 ? "Installiere ThixClip auf einem PC oder Mac und melde dich in den Einstellungen unter „Cloud“ mit diesem Konto an." : "Kein Gerät passt zur Suche.",
+            false, null, null, Model.Toolbar.UrlReset()))" />
+    }
+    else
+    {
+        <tc-table caption="Geräte">
+            <thead>
+                <tr><th scope="col">Gerät</th><th scope="col">System</th><th scope="col" class="mat-hide-sm">Version</th><th scope="col">Zuletzt gesehen</th><th scope="col" class="mat-hide-sm">Angemeldet seit</th><th scope="col"><span class="mat-sr-only">Aktionen</span></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var d in Model.Items)
+                {
+                    <tr>
+                        <td data-label="Gerät" class="mat-table__primary"><div class="mat-table__name">@Ui.Icon(DeviceService.PlatformIcon(d.Platform))<a href="/Account/Device?id=@d.Id">@d.Name</a></div></td>
+                        <td data-label="System">@DeviceService.PlatformName(d.Platform)</td>
+                        <td data-label="Version" class="mat-mono mat-hide-sm">@(d.AppVersion.Length == 0 ? "–" : d.AppVersion)</td>
+                        <td data-label="Zuletzt gesehen" class="mat-table__keep-label">@Dates.Ago(d.LastSeenDate)</td>
+                        <td data-label="Angemeldet seit" class="mat-hide-sm">@Dates.Stamp(d.CreateDate)</td>
+                        <td class="mat-table__cell-actions"><div class="mat-table__actions"><a class="mat-btn mat-btn--ghost mat-btn--icon mat-btn--sm" href="/Account/Device?id=@d.Id" aria-label="@d.Name bearbeiten" data-tip="Bearbeiten">@Ui.Icon("edit")</a></div></td>
+                    </tr>
+                }
+            </tbody>
+        </tc-table>
+    }
+
+</div>
+
+<p class="mat-hint">Ein Gerät kommt hinzu, wenn du dich in der ThixClip-App unter Einstellungen → Cloud anmeldest. Ein entferntes Gerät synchronisiert sofort nicht mehr.</p>
+

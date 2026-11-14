@@ -1,0 +1,7 @@
+# ThixClip.Cloud - a private clipboard history. Every page needs an account; nothing here is for search engines.
+User-agent: *
+Allow: /llms.txt
+Allow: /robots.txt
+Disallow: /
+
+# Information for language models: /llms.txt

@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ThixClip.Shared/ThixClip.Shared.csproj" />
+    <Project Path="src/ThixClip.Core/ThixClip.Core.csproj" />
+    <Project Path="src/ThixClip/ThixClip.csproj" />
+    <Project Path="src/ThixClip.Cloud/ThixClip.Cloud.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ThixClip.Tests/ThixClip.Tests.csproj" />
+    <Project Path="tests/ThixClip.Cloud.Tests/ThixClip.Cloud.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,191 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ThixClip.Controls"
+             x:Class="ThixClip.Pages.SettingsPage">
+  <!-- Settings in tabs: Allgemein | Aufzeichnung | Cloud | Updates | Erweitert. A switch applies at once (like macOS). -->
+  <Border Background="{DynamicResource SurfaceBrush}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Margin="28,22,28,28" MaxWidth="820" HorizontalAlignment="Left">
+        <TextBlock Text="Einstellungen" Theme="{StaticResource PageTitle}" />
+        <TextBlock x:Name="PolicyNote" Theme="{StaticResource MutedText}" Margin="0,4,0,0" IsVisible="False"
+                   Text="Einige Einstellungen wurden von einem Administrator festgelegt." />
+        <controls:InfoBar x:Name="PageMessage" Margin="0,14,0,0" />
+
+        <TabControl x:Name="Tabs" Margin="0,12,0,0">
+          <!-- ===== General ===== -->
+          <TabItem x:Name="GeneralTabItem" Header="Allgemein">
+            <StackPanel>
+              <controls:SettingRow Title="Tastenkürzel" x:Name="HotkeyRow"
+                                   Description="Öffnet ThixClip aus jeder App. Es hat Vorrang vor gleichen Kürzeln anderer Programme.">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <controls:HotkeyRecorder x:Name="HotkeyRecorder" />
+                  <Button x:Name="HotkeyResetButton" Click="OnHotkeyResetClick" ToolTip.Tip="Standard wiederherstellen">
+                    <controls:IconLabel Icon="{StaticResource Icon.Sync}" Text="Standard" />
+                  </Button>
+                </StackPanel>
+              </controls:SettingRow>
+              <controls:FormField Field="Hotkey" Margin="0" />
+              <controls:SettingRow Title="Bei der Anmeldung starten" Description="ThixClip startet unsichtbar im Infobereich / in der Menüleiste.">
+                <ToggleSwitch x:Name="AutostartSwitch" OnContent="" OffContent="" AutomationProperties.Name="Bei der Anmeldung starten" />
+              </controls:SettingRow>
+              <controls:SettingRow Title="Nach Auswahl direkt einfügen"
+                                   Description="Enter oder Doppelklick fügt den Eintrag in die App ein, aus der du ThixClip geöffnet hast. Aus: nur kopieren.">
+                <ToggleSwitch x:Name="PasteSwitch" OnContent="" OffContent="" AutomationProperties.Name="Nach Auswahl direkt einfügen" />
+              </controls:SettingRow>
+              <controls:InfoBar x:Name="AccessibilityInfo" />
+              <Button x:Name="AccessibilityButton" IsVisible="False" Click="OnAccessibilityClick" Margin="0,0,0,8">
+                <controls:IconLabel Icon="{StaticResource Icon.Lock}" Text="Zugriff erlauben …" />
+              </Button>
+              <controls:SettingRow Title="Ausblenden, wenn eine andere App aktiv wird" Description="Wie ein Auswahlfenster: ein Klick daneben schließt ThixClip.">
+                <ToggleSwitch x:Name="HideSwitch" OnContent="" OffContent="" AutomationProperties.Name="Ausblenden, wenn eine andere App aktiv wird" />
+              </controls:SettingRow>
+              <controls:SettingRow Title="Erscheinungsbild">
+                <ComboBox x:Name="ThemeChoice" MinWidth="170" AutomationProperties.Name="Erscheinungsbild">
+                  <ComboBoxItem Content="Wie das System" />
+                  <ComboBoxItem Content="Hell" />
+                  <ComboBoxItem Content="Dunkel" />
+                </ComboBox>
+              </controls:SettingRow>
+              <controls:SettingRow Title="Speicherdauer" Description="Ältere Einträge werden gelöscht. Favoriten und angeheftete Einträge bleiben." BorderThickness="0">
+                <ComboBox x:Name="RetentionChoice" MinWidth="170" AutomationProperties.Name="Speicherdauer" />
+              </controls:SettingRow>
+              <controls:FormField Field="RetentionDays" Margin="0" />
+            </StackPanel>
+          </TabItem>
+
+          <!-- ===== Recording / privacy ===== -->
+          <TabItem x:Name="RecordingTabItem" Header="Aufzeichnung">
+            <StackPanel>
+              <controls:SettingRow Title="Aufzeichnung pausieren" Description="Kopiertes wird nicht in den Verlauf aufgenommen (auch im Menü des Symbols).">
+                <ToggleSwitch x:Name="PauseSwitch" OnContent="" OffContent="" AutomationProperties.Name="Aufzeichnung pausieren" />
+              </controls:SettingRow>
+              <controls:SettingRow Title="Bilder aufzeichnen" Description="Screenshots und kopierte Bilder kommen in den Verlauf.">
+                <ToggleSwitch x:Name="ImagesSwitch" OnContent="" OffContent="" AutomationProperties.Name="Bilder aufzeichnen" />
+              </controls:SettingRow>
+              <controls:SettingRow Title="Text in Bildern erkennen (OCR)" x:Name="OcrRow">
+                <ToggleSwitch x:Name="OcrSwitch" OnContent="" OffContent="" AutomationProperties.Name="Text in Bildern erkennen" />
+              </controls:SettingRow>
+              <controls:SettingRow Title="Vertrauliches nicht aufzeichnen" BorderThickness="0"
+                                   Description="Was Passwort-Manager als vertraulich kennzeichnen (z. B. KeePass, 1Password, Bitwarden), landet nie im Verlauf.">
+                <ToggleSwitch x:Name="ConfidentialSwitch" OnContent="" OffContent="" AutomationProperties.Name="Vertrauliches nicht aufzeichnen" />
+              </controls:SettingRow>
+            </StackPanel>
+          </TabItem>
+
+          <!-- ===== Cloud ===== -->
+          <TabItem x:Name="CloudTabItem" Header="Cloud">
+            <StackPanel>
+              <TextBlock Theme="{StaticResource MutedText}" Margin="0,0,0,16"
+                         Text="Mit ThixClip.Cloud ist dein Verlauf auf allen PCs und Macs gleich – neue Einträge, Favoriten und Löschungen werden sofort abgeglichen. Im Browser kommst du auch von unterwegs dran." />
+              <controls:InfoBar x:Name="CloudMessage" />
+
+              <!-- Not connected: sign in -->
+              <StackPanel x:Name="CloudLogin" MaxWidth="460" HorizontalAlignment="Left">
+                <controls:FormField Label="Adresse der Cloud" Field="ServerUrl" Hint="Die Adresse deiner ThixClip.Cloud, z. B. https://clip.example.com">
+                  <TextBox x:Name="ServerUrlBox" Watermark="https://" />
+                </controls:FormField>
+                <controls:FormField Label="Benutzername" Field="UserName">
+                  <TextBox x:Name="UserNameBox" />
+                </controls:FormField>
+                <controls:FormField Label="Passwort" Field="Password" Hint="Wird nur für die Anmeldung gebraucht und nicht gespeichert.">
+                  <TextBox x:Name="PasswordBox" PasswordChar="●" />
+                </controls:FormField>
+                <controls:FormField Label="Name dieses Geräts" Field="DeviceName" Hint="So erscheint dieser Computer in der Cloud unter „Geräte“.">
+                  <TextBox x:Name="DeviceNameBox" />
+                </controls:FormField>
+                <controls:ActionBar Margin="0,6,0,0">
+                  <Button x:Name="ConnectButton" Theme="{StaticResource PrimaryButton}" Click="OnConnectClick" IsDefault="True">
+                    <controls:IconLabel Icon="{StaticResource Icon.Login}" Text="Anmelden" />
+                  </Button>
+                </controls:ActionBar>
+              </StackPanel>
+
+              <!-- Connected: state and actions -->
+              <StackPanel x:Name="CloudConnected" IsVisible="False" Spacing="16">
+                <Border Theme="{StaticResource Card}" MaxWidth="560" HorizontalAlignment="Left">
+                  <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                    <TextBlock Text="Cloud" Theme="{StaticResource MutedText}" Margin="0,4,24,4" />
+                    <SelectableTextBlock Grid.Column="1" x:Name="CloudServerText" Margin="0,4" />
+                    <TextBlock Grid.Row="1" Text="Konto" Theme="{StaticResource MutedText}" Margin="0,4,24,4" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="CloudAccountText" Margin="0,4" />
+                    <TextBlock Grid.Row="2" Text="Dieses Gerät" Theme="{StaticResource MutedText}" Margin="0,4,24,4" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" x:Name="CloudDeviceText" Margin="0,4" />
+                    <TextBlock Grid.Row="3" Text="Status" Theme="{StaticResource MutedText}" Margin="0,4,24,4" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" x:Name="CloudStateText" Margin="0,4" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="4" Text="Zuletzt" Theme="{StaticResource MutedText}" Margin="0,4,24,4" />
+                    <TextBlock Grid.Row="4" Grid.Column="1" x:Name="CloudLastSyncText" Margin="0,4" />
+                  </Grid>
+                </Border>
+                <controls:ActionBar>
+                  <Button Theme="{StaticResource PrimaryButton}" Click="OnSyncNowClick">
+                    <controls:IconLabel Icon="{StaticResource Icon.Sync}" Text="Jetzt synchronisieren" />
+                  </Button>
+                  <Button Click="OnOpenCloudClick">
+                    <controls:IconLabel Icon="{StaticResource Icon.External}" Text="Im Browser öffnen" />
+                  </Button>
+                  <Button x:Name="DisconnectButton" Theme="{StaticResource DangerButton}" controls:ActionBar.Separated="True" Click="OnDisconnectClick">
+                    <controls:IconLabel Icon="{StaticResource Icon.Logout}" Text="Abmelden" />
+                  </Button>
+                </controls:ActionBar>
+              </StackPanel>
+            </StackPanel>
+          </TabItem>
+
+          <!-- ===== Updates ===== -->
+          <TabItem x:Name="UpdatesTabItem" Header="Updates">
+            <StackPanel>
+              <Border Theme="{StaticResource Card}" MaxWidth="560" HorizontalAlignment="Left" Margin="0,0,0,14">
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto">
+                  <TextBlock Text="Installiert" Theme="{StaticResource MutedText}" Margin="0,4,24,4" />
+                  <TextBlock Grid.Column="1" x:Name="InstalledVersionText" Margin="0,4" />
+                  <TextBlock Grid.Row="1" Text="Kanal" Theme="{StaticResource MutedText}" Margin="0,4,24,4" />
+                  <TextBlock Grid.Row="1" Grid.Column="1" x:Name="ChannelText" Margin="0,4" />
+                  <TextBlock Grid.Row="2" Text="Zuletzt geprüft" Theme="{StaticResource MutedText}" Margin="0,4,24,4" />
+                  <TextBlock Grid.Row="2" Grid.Column="1" x:Name="LastCheckText" Margin="0,4" />
+                </Grid>
+              </Border>
+              <controls:InfoBar x:Name="UpdateMessage" />
+              <ProgressBar x:Name="UpdateProgress" IsVisible="False" Height="4" MinHeight="4" Maximum="1" Margin="0,0,0,12" MaxWidth="560" HorizontalAlignment="Stretch" />
+              <controls:ActionBar Margin="0,0,0,10">
+                <Button x:Name="CheckUpdateButton" Click="OnCheckUpdateClick">
+                  <controls:IconLabel Icon="{StaticResource Icon.Sync}" Text="Nach Updates suchen" />
+                </Button>
+                <Button x:Name="InstallUpdateButton" Theme="{StaticResource PrimaryButton}" Click="OnInstallUpdateClick" IsVisible="False">
+                  <controls:IconLabel Icon="{StaticResource Icon.Download}" Text="Update installieren" />
+                </Button>
+                <Button Click="OnReleasePageClick">
+                  <controls:IconLabel Icon="{StaticResource Icon.External}" Text="Versionen auf GitHub" />
+                </Button>
+              </controls:ActionBar>
+              <controls:SettingRow Title="Automatisch nach Updates suchen" Description="Beim Start und alle 6 Stunden, im eigenen Kanal (Release oder Nightly).">
+                <ToggleSwitch x:Name="CheckUpdatesSwitch" OnContent="" OffContent="" AutomationProperties.Name="Automatisch nach Updates suchen" />
+              </controls:SettingRow>
+              <controls:SettingRow Title="Updates automatisch installieren" BorderThickness="0"
+                                   Description="Full-Auto-Update: neue Versionen werden ohne Rückfrage installiert, ThixClip startet danach neu im Hintergrund.">
+                <ToggleSwitch x:Name="AutoInstallSwitch" OnContent="" OffContent="" AutomationProperties.Name="Updates automatisch installieren" />
+              </controls:SettingRow>
+            </StackPanel>
+          </TabItem>
+
+          <!-- ===== Advanced ===== -->
+          <TabItem x:Name="AdvancedTabItem" Header="Erweitert">
+            <StackPanel>
+              <controls:SettingRow Title="Datenordner" x:Name="DataFolderRow">
+                <Button Click="OnOpenDataFolderClick">
+                  <controls:IconLabel Icon="{StaticResource Icon.External}" Text="Öffnen" />
+                </Button>
+              </controls:SettingRow>
+              <controls:SettingRow Title="Protokolle" x:Name="LogFolderRow" BorderThickness="0">
+                <Button Click="OnOpenLogFolderClick">
+                  <controls:IconLabel Icon="{StaticResource Icon.External}" Text="Öffnen" />
+                </Button>
+              </controls:SettingRow>
+              <TextBlock Theme="{StaticResource MutedText}" Margin="0,16,0,0"
+                         Text="Administratoren können ThixClip per Richtlinie einschränken (LockConfiguration, DisableCloud, DisableUpdates) – unter Windows in HKLM\SOFTWARE\Policies\ThixClip, unter macOS per Konfigurationsprofil info.schmoldt.thixclip." />
+            </StackPanel>
+          </TabItem>
+        </TabControl>
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+</UserControl>

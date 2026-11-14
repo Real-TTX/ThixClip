@@ -1,0 +1,77 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The desktop application for Windows and macOS (Avalonia): the clipboard window, tray / menu bar icon and - on
+    Windows - its own setup (same program).
+    Windows: published self-contained single-file for win-x64; that ThixClip.exe is its own setup (InstallService).
+    macOS:   published self-contained for osx-arm64 / osx-x64 and packed into ThixClip.app (scripts/package-macos.sh).
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>$(DesktopTargetFramework)</TargetFramework>
+    <AssemblyName>ThixClip</AssemblyName>
+    <RootNamespace>ThixClip</RootNamespace>
+    <ApplicationIcon>Assets\thixclip.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyTitle>ThixClip</AssemblyTitle>
+    <AvaloniaVersion>11.3.22</AvaloniaVersion>
+    <!-- Bindings in data templates resolve by reflection (the rows are plain view models). -->
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <!-- InstallService creates Windows shortcuts through the WScript.Shell COM object. -->
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <SupportedOSPlatformVersion Condition="'$(OS)' == 'Windows_NT'">10.0.17763.0</SupportedOSPlatformVersion>
+    <!-- Start-up speed: the app starts at sign-in and must open its window at once. -->
+    <TieredPGO>true</TieredPGO>
+    <TieredCompilationQuickJitForLoops>true</TieredCompilationQuickJitForLoops>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <DebugType>none</DebugType>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+    <!-- Ready-to-run code: the window comes up without waiting for the JIT. -->
+    <PublishReadyToRun>true</PublishReadyToRun>
+  </PropertyGroup>
+
+  <!-- Windows: one file, which is also the setup (App.RunSetupIfRequested). -->
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('win-'))">
+    <PublishSingleFile>true</PublishSingleFile>
+    <DefineConstants>$(DefineConstants);SINGLE_FILE</DefineConstants>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <!-- macOS: the files go into ThixClip.app/Contents/MacOS (scripts/package-macos.sh). -->
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('osx-'))">
+    <UseAppHost>true</UseAppHost>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="System.IO" />
+    <Using Include="System.Net.Http" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ThixClip.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThixClip.Core\ThixClip.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\thixclip.ico" />
+    <AvaloniaResource Include="Assets\tray-windows.ico" />
+    <AvaloniaResource Include="Assets\tray-macos.png" />
+    <AvaloniaResource Include="Assets\logo-256.png" />
+    <AvaloniaResource Include="Assets\logo-64.png" />
+  </ItemGroup>
+
+</Project>

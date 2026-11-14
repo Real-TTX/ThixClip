@@ -1,0 +1,7 @@
+@model string
+@* The areas of the account (UI rule: one item with several areas has tabs): each tab is a page of its own. *@
+<tc-tabs label="Konto">
+    <tc-tab href="/Account" active="@(Model == "general")" icon="user">Allgemein</tc-tab>
+    <tc-tab href="/Account/Security" active="@(Model == "security")" icon="lock">Sicherheit</tc-tab>
+    <tc-tab href="/Account/Devices" active="@(Model == "devices")" icon="monitor">Geräte</tc-tab>
+</tc-tabs>

@@ -1,0 +1,33 @@
+@page "/Account"
+@model ThixClip.Cloud.Pages.Account.IndexModel
+@{
+    ViewData["Title"] = "Konto";
+    ViewData["PageSub"] = $"Angemeldet als {Model.Account.UserName}";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Konto", null), ("Allgemein", null) };
+    ViewData["Width"] = "narrow";
+}
+
+<partial name="_AccountTabs" model="@("general")" />
+
+<form class="mat-form" method="post" novalidate>
+    <partial name="_FormSummary" model="ViewData.ModelState" />
+    <div class="mat-card">
+        <div class="mat-card__head"><h2 class="mat-card__title">@Ui.Icon("user")Profil</h2></div>
+        <div class="mat-card__body mat-form">
+            <div class="mat-field">
+                <span class="mat-label">Benutzername</span>
+                <span class="mat-mono">@Model.Account.UserName</span>
+                <span class="mat-hint">Damit meldest du dich im Browser und in der ThixClip-App an.</span>
+            </div>
+            <tc-field name="DisplayName" label="Anzeigename" required value="@Model.DisplayName" maxlength="120" autocomplete="name" msg-required="Bitte einen Namen eingeben." />
+        </div>
+    </div>
+    <div class="mat-card">
+        <div class="mat-card__head"><h2 class="mat-card__title">@Ui.Icon("archive")Speicherdauer</h2></div>
+        <div class="mat-card__body mat-form">
+            <tc-field name="RetentionDays" kind="select" label="Wie lange sollen Einträge gespeichert werden?" value="@Model.RetentionDays" options="IndexModel.RetentionChoices"
+                      hint="Gilt für alle Geräte des Kontos. Favoriten und angeheftete Einträge bleiben immer. Ältere Einträge werden beim Speichern sofort gelöscht." />
+        </div>
+    </div>
+    <tc-buttons save="Speichern" back="/Clips" />
+</form>

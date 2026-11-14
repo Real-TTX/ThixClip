@@ -1,0 +1,60 @@
+# ThixClip.Cloud - Development (branch dev, image :nightly) with pgAdmin
+#   docker compose -f docker-compose.dev.yml up -d
+#   App:     http://localhost:4950
+#   pgAdmin: http://localhost:4951   (no sign-in; database password: thixclip)
+name: thixclip-dev
+
+services:
+  web:
+    image: ghcr.io/real-ttx/thixclip:nightly
+    restart: unless-stopped
+    ports:
+      - "4950:4950"
+    volumes:
+      - web-data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: thixclip
+      POSTGRES_USER: thixclip
+      POSTGRES_PASSWORD: thixclip
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U thixclip -d thixclip"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    ports:
+      - "4951:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@thixclip.example.com
+      PGADMIN_DEFAULT_PASSWORD: thixclip
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    configs:
+      - source: servers
+        target: /pgadmin4/servers.json
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    depends_on:
+      - db
+
+configs:
+  servers:
+    content: |
+      {"Servers": {"1": {"Name": "ThixClip", "Group": "Servers", "Host": "db", "Port": 5432, "MaintenanceDB": "thixclip", "Username": "thixclip", "SSLMode": "prefer"}}}
+
+volumes:
+  web-data:
+  db-data:
+  pgadmin-data:

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The sync contract between the desktop app (ThixClip.Core) and the cloud (ThixClip.Cloud): routes, request and response
+    types, limits. No logic, no dependencies. A change here is a change of the protocol: keep it backwards compatible
+    (new optional fields only) or raise SyncContract.ProtocolVersion.
+  -->
+  <PropertyGroup>
+    <RootNamespace>ThixClip.Shared</RootNamespace>
+  </PropertyGroup>
+
+</Project>

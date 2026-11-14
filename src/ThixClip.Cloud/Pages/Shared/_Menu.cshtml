@@ -1,0 +1,44 @@
+@model string
+@inject CurrentUser Me
+@*
+    The menus (MatDesign SHELL-01 .. SHELL-19): one panel per menu of the switcher at the foot, the one of the page shown.
+    - clips:   the main action first (a new clip), then the history and its views (pictures, links, favourites, pinned)
+    - account: general, security, devices
+    - admin:   the accounts (administrators only)
+*@
+@{
+    var path = Context.Request.Path.Value ?? "/";
+    var kind = Context.Request.Query["kind"].ToString();
+    var flag = Context.Request.Query["flag"].ToString();
+    var onList = path.Equals("/Clips", StringComparison.OrdinalIgnoreCase);
+    string Cls(bool active) => "mat-nav__item" + (active ? " is-active" : string.Empty);
+    string Cur(bool active) => active ? "page" : null!;
+    var all = onList && kind.Length == 0 && flag.Length == 0;
+}
+<nav class="mat-nav__scroll" aria-label="Zwischenablage" data-nav-panel="clips" hidden="@(Model != "clips")">
+    <ul class="mat-nav__list">
+        <li><a class="mat-nav__item mat-nav__item--primary" href="/Clips/Edit">@Ui.Icon("plus")<span>Neuer Eintrag</span></a></li>
+        <li><a class="@Cls(all)" href="/Clips" aria-current="@Cur(all)">@Ui.Icon("clock")<span>Verlauf</span></a></li>
+        <li><a class="@Cls(onList && kind == "image")" href="/Clips?kind=image" aria-current="@Cur(onList && kind == "image")">@Ui.Icon("image")<span>Bilder</span></a></li>
+        <li><a class="@Cls(onList && kind == "link")" href="/Clips?kind=link" aria-current="@Cur(onList && kind == "link")">@Ui.Icon("link")<span>Links</span></a></li>
+        <li><a class="@Cls(onList && flag == "favorite")" href="/Clips?flag=favorite" aria-current="@Cur(onList && flag == "favorite")">@Ui.Icon("star")<span>Favoriten</span></a></li>
+        <li><a class="@Cls(onList && flag == "pinned")" href="/Clips?flag=pinned" aria-current="@Cur(onList && flag == "pinned")">@Ui.Icon("pin")<span>Angeheftet</span></a></li>
+    </ul>
+</nav>
+
+<nav class="mat-nav__scroll" aria-label="Konto" data-nav-panel="account" hidden="@(Model != "account")">
+    <ul class="mat-nav__list">
+        <li><a class="@Cls(path.Equals("/Account", StringComparison.OrdinalIgnoreCase))" href="/Account" aria-current="@Cur(path.Equals("/Account", StringComparison.OrdinalIgnoreCase))">@Ui.Icon("user")<span>Allgemein</span></a></li>
+        <li><a class="@Cls(Menu.Under(path, "/Account/Security"))" href="/Account/Security" aria-current="@Cur(Menu.Under(path, "/Account/Security"))">@Ui.Icon("lock")<span>Sicherheit</span></a></li>
+        <li><a class="@Cls(Menu.Under(path, "/Account/Devices") || Menu.Under(path, "/Account/Device"))" href="/Account/Devices" aria-current="@Cur(Menu.Under(path, "/Account/Devices"))">@Ui.Icon("monitor")<span>Geräte</span></a></li>
+    </ul>
+</nav>
+
+@if (Me.IsAdmin)
+{
+    <nav class="mat-nav__scroll" aria-label="Administration" data-nav-panel="admin" hidden="@(Model != "admin")">
+        <ul class="mat-nav__list">
+            <li><a class="@Cls(Menu.Under(path, "/Admin/Users"))" href="/Admin/Users" aria-current="@Cur(Menu.Under(path, "/Admin/Users"))">@Ui.Icon("users")<span>Benutzer</span></a></li>
+        </ul>
+    </nav>
+}

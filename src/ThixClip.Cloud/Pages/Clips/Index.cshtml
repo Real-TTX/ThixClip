@@ -1,0 +1,100 @@
+@page "/Clips"
+@model ThixClip.Cloud.Pages.Clips.IndexModel
+@{
+    ViewData["Title"] = "Verlauf";
+    ViewData["PageSub"] = "Alles, was auf deinen Geräten kopiert wurde – durchsuchbar, auch Text aus Bildern.";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Zwischenablage", null), ("Verlauf", null) };
+}
+
+@* The list reloads itself when another device changes something (js/live.js waits on /live/revision). *@
+<div class="mat-list" data-live data-live-revision="@Model.Result.Latest">
+    <partial name="_Toolbar" model="Model.Toolbar" />
+
+    <div class="tc-live-region" data-live-region>
+        @if (Model.Result.Items.Count == 0)
+        {
+            var first = Model.Result.Total == 0;
+            <partial name="_Empty" model="@(new EmptyStateModel("clipboard", first ? "Noch nichts kopiert" : "Nichts gefunden",
+                first ? "Sobald du auf einem Gerät mit ThixClip etwas kopierst, erscheint es hier. Oder lege hier einen Eintrag an – er ist sofort auf allen Geräten."
+                      : "Kein Eintrag passt zur Suche oder zu den Filtern.",
+                first, "/Clips/Edit", "Neuer Eintrag", Model.Toolbar.UrlReset()))" />
+        }
+        else
+        {
+            <ul class="mat-itemlist mat-itemlist--inset mat-itemlist--lead-lg tc-clips" aria-label="Verlauf">
+                @foreach (var group in Model.Groups)
+                {
+                    <li class="mat-itemlist__divider">@group.Heading <span class="tc-count">@(group.Items.Count == 1 ? "1 Eintrag" : $"{group.Items.Count} Einträge")</span></li>
+                    @foreach (var c in group.Items)
+                    {
+                        <li class="mat-item mat-item--top tc-clip">
+                            <a class="mat-item__main" href="/Clips/Edit?id=@c.Id">
+                                <span class="mat-item__lead">
+                                    @if (c.Kind == ClipKind.Image && c.HasImage)
+                                    {
+                                        <span class="mat-item__thumb tc-thumb"><img src="/live/clips/@c.Id/thumbnail" alt="" loading="lazy" decoding="async" width="56" height="56" /></span>
+                                    }
+                                    else
+                                    {
+                                        <span class="mat-item__tile">@Ui.Icon(ClipContent.KindIcon(c.Kind))</span>
+                                    }
+                                </span>
+                                <span class="mat-item__body">
+                                    @if (c.Kind == ClipKind.Image)
+                                    {
+                                        <span class="mat-item__title">Bild (PNG@(c.ImageWidth is null ? "" : $", {c.ImageWidth} × {c.ImageHeight}"))</span>
+                                        @if (c.Preview.Length > 0)
+                                        {
+                                            <span class="mat-item__text mat-item__text--clamp">@c.Preview</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="mat-item__title @(c.Kind == ClipKind.Link ? "tc-link-text" : "")">@c.Preview</span>
+                                    }
+                                    <span class="mat-item__text tc-meta">
+                                        @if (c.HasOcr)
+                                        {
+                                            <span class="mat-pill mat-pill--accent tc-pill" title="Text im Bild erkannt (durchsuchbar)">OCR</span>
+                                        }
+                                        @if (c.IsPinned)
+                                        {
+                                            <span class="mat-pill mat-pill--plain tc-pill">@Ui.Icon("pin")Angeheftet</span>
+                                        }
+                                        <span>@ClipContent.KindName(c.Kind)@(c.Source is null ? "" : " · " + c.Source)</span>
+                                    </span>
+                                </span>
+                                <span class="mat-item__end"><span class="mat-item__note">@Dates.Short(Model.Toolbar.Sort == "created" ? c.CreatedDate : c.CopiedDate)</span></span>
+                            </a>
+                            <div class="mat-item__aside">
+                                <form method="post" asp-page-handler="Favorite" asp-route-id="@c.Id" asp-route-on="@(!c.IsFavorite)">
+                                    <input type="hidden" name="returnUrl" value="@Model.Here" />
+                                    <button type="submit" class="mat-btn mat-btn--ghost mat-btn--icon tc-star @(c.IsFavorite ? "is-on" : "")" aria-pressed="@(c.IsFavorite ? "true" : "false")"
+                                            aria-label="@(c.IsFavorite ? "Aus den Favoriten nehmen" : "Zu den Favoriten")" data-tip="@(c.IsFavorite ? "Favorit" : "Zu den Favoriten")">@Ui.Icon("star")</button>
+                                </form>
+                            </div>
+                        </li>
+                    }
+                }
+            </ul>
+        }
+
+        <partial name="_Pager" model="Model.Pager" />
+    </div>
+
+    @* An empty history offers its first entry in the empty state; the actions are for a history that has entries. *@
+    @if (Model.Result.Total > 0)
+    {
+        <div class="mat-actions">
+            <a class="mat-btn mat-btn--primary" href="/Clips/Edit">@Ui.Icon("plus")<span>Neuer Eintrag</span></a>
+            <span class="mat-btn-row__spacer"></span>
+            <form method="post" asp-page-handler="Clear" class="tc-inline-form">
+                <button type="submit" class="mat-btn mat-btn--danger" data-confirm="Alle Einträge löschen, die weder Favorit noch angeheftet sind? Sie verschwinden auch auf allen Geräten." data-confirm-ok="Verlauf leeren" data-confirm-danger>@Ui.Icon("trash")<span>Verlauf leeren</span></button>
+            </form>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/live.js" asp-append-version="true"></script>
+}

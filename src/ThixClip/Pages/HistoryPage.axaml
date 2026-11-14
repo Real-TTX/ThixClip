@@ -1,0 +1,269 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ThixClip.Controls"
+             xmlns:pages="using:ThixClip.Pages"
+             x:Class="ThixClip.Pages.HistoryPage">
+  <!--
+    The history (mockup "Verlauf"): the list with its toolbar at the left, the chosen entry at the right.
+    Keyboard first: the search field in the header keeps the focus, arrow keys move here, Enter pastes (MainWindow).
+  -->
+  <Grid x:Name="Columns" ColumnDefinitions="*,400">
+    <!-- ===== List ===== -->
+    <Border Background="{DynamicResource SurfaceBrush}">
+      <DockPanel Margin="26,22,22,16">
+        <!-- Title and toolbar (filter, sort) above the list -->
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock x:Name="TitleText" Text="Verlauf" Theme="{StaticResource PageTitle}" />
+            <TextBlock x:Name="SubtitleText" Theme="{StaticResource MutedText}" Margin="0,3,0,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <ComboBox x:Name="KindFilter" MinWidth="128" AutomationProperties.Name="Typ" ToolTip.Tip="Nach Typ filtern">
+              <ComboBoxItem Content="Alle Typen" />
+              <ComboBoxItem Content="Text" />
+              <ComboBoxItem Content="Links" />
+              <ComboBoxItem Content="Bilder" />
+            </ComboBox>
+            <ComboBox x:Name="SortChoice" MinWidth="150" AutomationProperties.Name="Sortierung" ToolTip.Tip="Sortierung">
+              <ComboBoxItem Content="Neueste zuerst" />
+              <ComboBoxItem Content="Älteste zuerst" />
+            </ComboBox>
+          </StackPanel>
+        </Grid>
+
+        <!-- Below the list: actions (left, positive to negative, delete separated) and the keys -->
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+          <controls:ActionBar DockPanel.Dock="Left" VerticalAlignment="Center">
+            <Button x:Name="ClearButton" Theme="{StaticResource DangerButton}" controls:ActionBar.Separated="True" Click="OnClearClick"
+                    ToolTip.Tip="Löscht alle Einträge außer Favoriten und angehefteten">
+              <controls:IconLabel Icon="{StaticResource Icon.Delete}" Text="Verlauf leeren" />
+            </Button>
+          </controls:ActionBar>
+          <WrapPanel x:Name="KeyHints" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0" />
+        </DockPanel>
+
+        <Panel>
+          <ListBox x:Name="ClipList" Theme="{StaticResource ClipList}" ItemContainerTheme="{StaticResource ClipRow}" SelectionMode="Single"
+                   AutomationProperties.Name="Einträge" Padding="0,0,14,0" Margin="0,0,-14,0">
+            <ListBox.ItemsPanel>
+              <ItemsPanelTemplate>
+                <VirtualizingStackPanel />
+              </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.DataTemplates>
+              <DataTemplate DataType="pages:GroupHeaderViewModel">
+                <Grid ColumnDefinitions="*,Auto" Margin="2,14,2,10" Classes.first="{Binding IsFirst}">
+                  <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" />
+                  <TextBlock Grid.Column="1" Text="{Binding CountText}" Theme="{StaticResource MutedText}" VerticalAlignment="Center" />
+                </Grid>
+              </DataTemplate>
+              <DataTemplate DataType="pages:ClipRowViewModel">
+                <Border Classes="row" CornerRadius="12" BorderThickness="1" Padding="14,11,8,11">
+                  <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                    <!-- Picture of an image, icon of a text or link -->
+                    <Border IsVisible="{Binding IsImage}" Width="136" Height="76" CornerRadius="8" ClipToBounds="True" Margin="0,0,14,0"
+                            Background="{DynamicResource SubtleBrush}" VerticalAlignment="Center">
+                      <Panel>
+                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="HighQuality" />
+                        <controls:IconView Data="{StaticResource Icon.Download}" IsVisible="{Binding IsImagePending}" Width="20" Height="20"
+                                           Foreground="{DynamicResource TextFaintBrush}" HorizontalAlignment="Center" ToolTip.Tip="Wird aus der Cloud geladen" />
+                      </Panel>
+                    </Border>
+                    <Border IsVisible="{Binding IsText}" Width="36" Height="36" Margin="2,0,14,0" CornerRadius="9" VerticalAlignment="Center"
+                            Background="{DynamicResource SubtleBrush}">
+                      <controls:IconView Data="{Binding KindIcon}" Width="19" Height="19" HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
+                    </Border>
+
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="5">
+                      <Border Theme="{StaticResource Badge}" IsVisible="{Binding HasOcrBadge}" HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                          <controls:IconView Data="{StaticResource Icon.Sparkles}" Width="12" Height="12" Foreground="{DynamicResource AccentTextBrush}" />
+                          <TextBlock Text="OCR" />
+                        </StackPanel>
+                      </Border>
+                      <TextBlock Text="{Binding PreviewText}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" FontSize="14.5" LineHeight="21" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,4,0" Spacing="6">
+                      <controls:IconView Data="{StaticResource Icon.Pin}" IsVisible="{Binding IsPinned}" Width="14" Height="14"
+                                         Foreground="{DynamicResource AccentBrush}" ToolTip.Tip="Angeheftet" />
+                      <TextBlock Text="{Binding TimeText}" Theme="{StaticResource MutedText}" TextWrapping="NoWrap" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Button Grid.Column="3" Theme="{StaticResource GhostButton}" Click="OnStarClick" Focusable="False" VerticalAlignment="Center"
+                            ToolTip.Tip="Favorit" AutomationProperties.Name="Favorit">
+                      <Panel>
+                        <controls:IconView Data="{StaticResource Icon.Star}" Width="19" Height="19" IsVisible="{Binding !IsFavorite}" />
+                        <controls:IconView Data="{StaticResource Icon.Star}" Width="19" Height="19" IsVisible="{Binding IsFavorite}" IsFilled="True"
+                                           Foreground="{DynamicResource AccentBrush}" />
+                      </Panel>
+                    </Button>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ListBox.DataTemplates>
+          </ListBox>
+
+          <!-- Empty list -->
+          <StackPanel x:Name="EmptyState" IsVisible="False" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="380" Spacing="10">
+            <Border Width="64" Height="64" CornerRadius="18" Background="{DynamicResource AccentSoftBrush}" HorizontalAlignment="Center">
+              <controls:IconView x:Name="EmptyIcon" Data="{StaticResource Icon.Clipboard}" Width="30" Height="30" Foreground="{DynamicResource AccentBrush}"
+                                 HorizontalAlignment="Center" />
+            </Border>
+            <TextBlock x:Name="EmptyTitle" Theme="{StaticResource SectionTitle}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
+            <TextBlock x:Name="EmptyText" Theme="{StaticResource MutedText}" HorizontalAlignment="Center" TextAlignment="Center" />
+          </StackPanel>
+        </Panel>
+      </DockPanel>
+    </Border>
+
+    <!-- ===== The chosen entry ===== -->
+    <Border Grid.Column="1" x:Name="DetailPane" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0">
+      <Panel>
+        <ScrollViewer x:Name="DetailScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel x:Name="Detail" Margin="20,22,22,22" Spacing="16">
+            <!-- Preview -->
+            <Border CornerRadius="14" ClipToBounds="True" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                    Background="{DynamicResource SubtleBrush}" MinHeight="120">
+              <Panel>
+                <Image Source="{Binding Preview}" IsVisible="{Binding IsImage}" Stretch="Uniform" MaxHeight="300"
+                       RenderOptions.BitmapInterpolationMode="HighQuality" />
+                <TextBlock IsVisible="{Binding IsImagePending}" Text="Das Bild wird aus der Cloud geladen …" Theme="{StaticResource MutedText}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <ScrollViewer IsVisible="{Binding IsText}" MaxHeight="300" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                  <SelectableTextBlock Text="{Binding FullText}" TextWrapping="Wrap" Margin="16,14" FontSize="14" LineHeight="21" />
+                </ScrollViewer>
+              </Panel>
+            </Border>
+
+            <!-- Actions: positive to negative -->
+            <controls:ActionBar>
+              <Button x:Name="PasteButton" Theme="{StaticResource PrimaryButton}" Click="OnPasteClick" ToolTip.Tip="In die vorherige App einfügen (Enter)">
+                <controls:IconLabel Icon="{StaticResource Icon.Paste}" Text="Einfügen" />
+              </Button>
+              <Button Click="OnCopyClick" x:Name="CopyButton">
+                <controls:IconLabel Icon="{StaticResource Icon.Copy}" Text="Kopieren" />
+              </Button>
+              <Button Click="OnPinClick" x:Name="PinButton">
+                <controls:IconLabel Icon="{StaticResource Icon.Pin}" Text="{Binding PinText}" />
+              </Button>
+            </controls:ActionBar>
+
+            <!-- Recognised text of an image -->
+            <StackPanel IsVisible="{Binding ShowOcrSection}" Spacing="10">
+              <Border Height="1" Background="{DynamicResource BorderBrush}" />
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <controls:IconView Data="{StaticResource Icon.Sparkles}" Width="18" Height="18" Foreground="{DynamicResource AccentBrush}" />
+                <TextBlock Text="Erkannter Text (OCR)" FontWeight="SemiBold" FontSize="15" />
+              </StackPanel>
+              <Border Theme="{StaticResource SubtleCard}">
+                <Grid ColumnDefinitions="*,Auto">
+                  <SelectableTextBlock Text="{Binding OcrText}" IsVisible="{Binding HasOcrText}" TextWrapping="Wrap" FontSize="14" LineHeight="21" />
+                  <TextBlock Text="{Binding OcrPlaceholder}" IsVisible="{Binding !HasOcrText}" Theme="{StaticResource MutedText}" />
+                  <Button Grid.Column="1" Theme="{StaticResource GhostButton}" VerticalAlignment="Top" Click="OnCopyOcrClick" IsVisible="{Binding HasOcrText}"
+                          ToolTip.Tip="Erkannten Text kopieren" AutomationProperties.Name="Erkannten Text kopieren">
+                    <controls:IconView Data="{StaticResource Icon.Copy}" Width="17" Height="17" />
+                  </Button>
+                </Grid>
+              </Border>
+            </StackPanel>
+
+            <!-- Facts -->
+            <StackPanel x:Name="Facts">
+              <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,0,0,4" />
+              <Grid ColumnDefinitions="Auto,*" Classes="fact">
+                <controls:IconView Data="{Binding KindIcon}" Width="17" Height="17" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,12,0" />
+                <DockPanel Grid.Column="1">
+                  <TextBlock DockPanel.Dock="Right" Text="{Binding TypeText}" />
+                  <TextBlock Text="Typ" Foreground="{DynamicResource TextMutedBrush}" />
+                </DockPanel>
+              </Grid>
+              <Grid ColumnDefinitions="Auto,*" Classes="fact" IsVisible="{Binding IsImage}">
+                <controls:IconView Data="{StaticResource Icon.Sparkles}" Width="17" Height="17" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,12,0" />
+                <DockPanel Grid.Column="1">
+                  <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="5">
+                    <controls:IconView Data="{StaticResource Icon.Check}" Width="15" Height="15" Foreground="{DynamicResource SuccessBrush}" IsVisible="{Binding OcrRecognized}" />
+                    <TextBlock Text="{Binding OcrStatusText}" />
+                  </StackPanel>
+                  <TextBlock Text="OCR" Foreground="{DynamicResource TextMutedBrush}" />
+                </DockPanel>
+              </Grid>
+              <Grid ColumnDefinitions="Auto,*" Classes="fact">
+                <controls:IconView Data="{StaticResource Icon.Layers}" Width="17" Height="17" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,12,0" />
+                <DockPanel Grid.Column="1">
+                  <TextBlock DockPanel.Dock="Right" Text="{Binding SizeText}" />
+                  <TextBlock Text="Größe" Foreground="{DynamicResource TextMutedBrush}" />
+                </DockPanel>
+              </Grid>
+              <Grid ColumnDefinitions="Auto,*" Classes="fact">
+                <controls:IconView Data="{StaticResource Icon.History}" Width="17" Height="17" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,12,0" />
+                <DockPanel Grid.Column="1">
+                  <TextBlock DockPanel.Dock="Right" Text="{Binding CreatedText}" />
+                  <TextBlock Text="Erstellt" Foreground="{DynamicResource TextMutedBrush}" />
+                </DockPanel>
+              </Grid>
+              <Grid ColumnDefinitions="Auto,*" Classes="fact">
+                <controls:IconView Data="{StaticResource Icon.Copy}" Width="17" Height="17" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,12,0" />
+                <DockPanel Grid.Column="1">
+                  <TextBlock DockPanel.Dock="Right" Text="{Binding CopiedText}" />
+                  <TextBlock Text="Zuletzt kopiert" Foreground="{DynamicResource TextMutedBrush}" />
+                </DockPanel>
+              </Grid>
+              <Grid ColumnDefinitions="Auto,*" Classes="fact">
+                <controls:IconView Data="{StaticResource Icon.Device}" Width="17" Height="17" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,12,0" />
+                <DockPanel Grid.Column="1">
+                  <TextBlock DockPanel.Dock="Right" Text="{Binding SourceText}" TextTrimming="CharacterEllipsis" MaxWidth="220" />
+                  <TextBlock Text="Quelle" Foreground="{DynamicResource TextMutedBrush}" />
+                </DockPanel>
+              </Grid>
+              <Grid ColumnDefinitions="Auto,*" Classes="fact last">
+                <controls:IconView Data="{StaticResource Icon.Clipboard}" Width="17" Height="17" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,12,0" />
+                <DockPanel Grid.Column="1">
+                  <TextBlock DockPanel.Dock="Right" Text="{Binding RetentionText}" />
+                  <TextBlock Text="Speicherdauer" Foreground="{DynamicResource TextMutedBrush}" />
+                </DockPanel>
+              </Grid>
+            </StackPanel>
+
+            <!-- Keep or let go: favourite, then delete with a gap -->
+            <controls:ActionBar>
+              <Button Click="OnFavoriteClick" x:Name="FavoriteButton">
+                <controls:IconLabel Icon="{StaticResource Icon.Star}" Text="{Binding FavoriteText}" IsIconFilled="{Binding IsFavorite}" />
+              </Button>
+              <Button x:Name="DeleteButton" Theme="{StaticResource DangerButton}" controls:ActionBar.Separated="True" Click="OnDeleteClick">
+                <controls:IconLabel Icon="{StaticResource Icon.Delete}" Text="Löschen" />
+              </Button>
+            </controls:ActionBar>
+          </StackPanel>
+        </ScrollViewer>
+
+        <TextBlock x:Name="NoSelection" Text="Wähle einen Eintrag aus." Theme="{StaticResource MutedText}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="False" />
+      </Panel>
+    </Border>
+  </Grid>
+
+  <UserControl.Styles>
+    <!-- The card of a row (ListBoxItem theme ClipRow): white, hover grey, chosen = accent line and tint (mockup). -->
+    <Style Selector="ListBoxItem Border.row">
+      <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    </Style>
+    <Style Selector="ListBoxItem:pointerover Border.row">
+      <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+    </Style>
+    <Style Selector="ListBoxItem:selected Border.row">
+      <Setter Property="Background" Value="{DynamicResource SelectionBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="BorderThickness" Value="1.5" />
+    </Style>
+    <Style Selector="Grid.fact">
+      <Setter Property="Margin" Value="2,0" />
+      <Setter Property="MinHeight" Value="44" />
+    </Style>
+    <Style Selector="Grid.fact > DockPanel">
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Grid.first">
+      <Setter Property="Margin" Value="2,0,2,10" />
+    </Style>
+  </UserControl.Styles>
+</UserControl>

@@ -1,0 +1,48 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ThixClip.Controls"
+             x:Class="ThixClip.Pages.AboutPage">
+  <!-- About ThixClip: reached through the version number bottom left. -->
+  <Border Background="{DynamicResource SurfaceBrush}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="28,22" MaxWidth="640" HorizontalAlignment="Left" Spacing="18">
+        <TextBlock Text="Über ThixClip" Theme="{StaticResource PageTitle}" />
+        <Border Theme="{StaticResource Card}" Padding="24">
+          <StackPanel Spacing="18">
+            <StackPanel Orientation="Horizontal" Spacing="18">
+              <Image Source="/Assets/logo-256.png" Width="88" Height="88" RenderOptions.BitmapInterpolationMode="HighQuality" />
+              <StackPanel VerticalAlignment="Center" Spacing="4">
+                <TextBlock FontSize="28" FontWeight="SemiBold">
+                  <Run Text="Thix" /><Run Text="Clip" Foreground="{DynamicResource AccentBrush}" />
+                </TextBlock>
+                <TextBlock Text="Der Zwischenablage-Verlauf für Windows und macOS" Theme="{StaticResource MutedText}" />
+                <SelectableTextBlock x:Name="VersionText" FontSize="13" />
+              </StackPanel>
+            </StackPanel>
+            <TextBlock TextWrapping="Wrap" LineHeight="21"
+                       Text="ThixClip merkt sich, was du kopierst – Texte, Links und Bilder samt erkanntem Text – und holt es mit einem Tastenkürzel zurück. Mit ThixClip.Cloud ist der Verlauf auf all deinen Computern gleich und auch im Browser erreichbar." />
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
+              <TextBlock Text="Kanal" Theme="{StaticResource MutedText}" Margin="0,3,24,3" />
+              <TextBlock Grid.Column="1" x:Name="ChannelText" Margin="0,3" />
+              <TextBlock Grid.Row="1" Text="Build" Theme="{StaticResource MutedText}" Margin="0,3,24,3" />
+              <TextBlock Grid.Row="1" Grid.Column="1" x:Name="BuildText" Margin="0,3" />
+              <TextBlock Grid.Row="2" Text="System" Theme="{StaticResource MutedText}" Margin="0,3,24,3" />
+              <TextBlock Grid.Row="2" Grid.Column="1" x:Name="SystemText" Margin="0,3" TextWrapping="Wrap" />
+              <TextBlock Grid.Row="3" Text="Daten" Theme="{StaticResource MutedText}" Margin="0,3,24,3" />
+              <SelectableTextBlock Grid.Row="3" Grid.Column="1" x:Name="DataText" Margin="0,3" TextWrapping="Wrap" />
+            </Grid>
+            <TextBlock Text="© Matthias Schmoldt. Symbole: MatDesign (Lucide, ISC-Lizenz)." Theme="{StaticResource FaintText}" TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+        <controls:ActionBar>
+          <Button Click="OnGitHubClick">
+            <controls:IconLabel Icon="{StaticResource Icon.External}" Text="Projekt auf GitHub" />
+          </Button>
+          <Button Click="OnBackClick">
+            <controls:IconLabel Icon="{StaticResource Icon.History}" Text="Zurück zum Verlauf" />
+          </Button>
+        </controls:ActionBar>
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+</UserControl>

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Models, business layer (static classes), infrastructure and the native parts of the desktop app (clipboard, global
+    hotkey, paste, OCR) for Windows and macOS. No UI. Windows-only code is guarded by OperatingSystem.IsWindows() or
+    [SupportedOSPlatform("windows")]; the Windows OCR engine needs the Windows target framework ("#if WINDOWS").
+  -->
+  <PropertyGroup>
+    <TargetFramework>$(DesktopTargetFramework)</TargetFramework>
+    <RootNamespace>ThixClip.Core</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <SupportedOSPlatformVersion Condition="'$(OS)' == 'Windows_NT'">10.0.17763.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ThixClip.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.15" />
+    <PackageReference Include="SkiaSharp" Version="2.88.9" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.15" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThixClip.Shared\ThixClip.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

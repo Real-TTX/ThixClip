@@ -1,0 +1,28 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="640" height="200" viewBox="0 0 640 200">
+  <!-- ThixClip full logo: app icon + word mark ("Thix" ink, "Clip" brand blue). For headers, README, about pages. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#5A9CFF"/>
+      <stop offset="1" stop-color="#1E5BE6"/>
+    </linearGradient>
+    <linearGradient id="sheet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#EAF1FF"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(0 0) scale(0.78125)">
+    <rect x="16" y="16" width="224" height="224" rx="52" fill="url(#tile)"/>
+    <rect x="92" y="54" width="104" height="138" rx="18" fill="#FFFFFF" fill-opacity="0.38"/>
+    <rect x="60" y="74" width="120" height="146" rx="20" fill="url(#sheet)"/>
+    <rect x="94" y="58" width="52" height="30" rx="11" fill="#163E9E"/>
+    <rect x="106" y="66" width="28" height="12" rx="6" fill="#FFFFFF"/>
+    <g stroke="#2F6FED" stroke-width="11" stroke-linecap="round">
+      <line x1="84" y1="120" x2="156" y2="120"/>
+      <line x1="84" y1="146" x2="156" y2="146"/>
+      <line x1="84" y1="172" x2="128" y2="172"/>
+    </g>
+  </g>
+  <text x="228" y="134" font-family="'SF Pro Display', 'Segoe UI Variable Display', 'Segoe UI', Inter, 'Helvetica Neue', Arial, sans-serif" font-size="104" font-weight="650" letter-spacing="-2">
+    <tspan fill="#111827">Thix</tspan><tspan fill="#2F6FED">Clip</tspan>
+  </text>
+</svg>

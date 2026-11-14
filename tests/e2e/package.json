@@ -1,0 +1,11 @@
+{
+  "name": "thixclip-cloud-e2e",
+  "private": true,
+  "description": "Browser checks of ThixClip.Cloud against a running stack (Playwright with the installed Microsoft Edge).",
+  "scripts": {
+    "check": "node run.js http://localhost:4950"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.56.0"
+  }
+}

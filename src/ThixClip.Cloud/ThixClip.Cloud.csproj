@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    ThixClip.Cloud: the server of ThixClip. Keeps the clipboard history of an account, syncs it between the desktop apps
+    (API under /api/v1, see ThixClip.Shared/SyncContract.cs) and shows it in the browser (Razor Pages with MatUi, a PWA).
+    PostgreSQL through EF Core; images are decoded and made into PNG and thumbnails with SkiaSharp.
+  -->
+  <PropertyGroup>
+    <RootNamespace>ThixClip.Cloud</RootNamespace>
+    <AssemblyName>ThixClip.Cloud</AssemblyName>
+    <!-- Dates are formatted by the app itself (German, the time zone of the account): no ICU library is needed in the image. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.*" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.*" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.*" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.*">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <!-- The same SkiaSharp line as Avalonia 11.3 on the desktop. The Linux native library without dependencies runs in the slim ASP.NET image. -->
+    <PackageReference Include="SkiaSharp" Version="2.88.9" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="2.88.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThixClip.Shared\ThixClip.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ThixClip.Cloud.Tests" />
+  </ItemGroup>
+
+</Project>

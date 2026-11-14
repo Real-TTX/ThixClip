@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!--
+    ThixClip.Cloud icon (PWA, 48 px and larger): the clipboard of the app icon with a cloud badge bottom right,
+    so the web app and the desktop app are told apart on a home screen. Maskable: everything important sits inside
+    the safe zone (centre circle of 80 %).
+  -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#5A9CFF"/>
+      <stop offset="1" stop-color="#1E5BE6"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="256" height="256" fill="url(#tile)"/>
+  <rect x="98" y="58" width="96" height="126" rx="17" fill="#FFFFFF" fill-opacity="0.38"/>
+  <rect x="68" y="76" width="112" height="136" rx="19" fill="#FFFFFF"/>
+  <rect x="100" y="61" width="48" height="28" rx="10" fill="#163E9E"/>
+  <rect x="111" y="68" width="26" height="12" rx="6" fill="#FFFFFF"/>
+  <g stroke="#2F6FED" stroke-width="10" stroke-linecap="round">
+    <line x1="90" y1="118" x2="154" y2="118"/>
+    <line x1="90" y1="142" x2="132" y2="142"/>
+  </g>
+  <path d="M150 204h44a22 22 0 0 0 2-43.9 30 30 0 0 0-57.6 6.6A19 19 0 0 0 150 204z" fill="#163E9E" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"/>
+</svg>

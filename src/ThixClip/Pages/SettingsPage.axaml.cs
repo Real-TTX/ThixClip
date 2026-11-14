@@ -1,0 +1,349 @@
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using ThixClip.Controls;
+using ThixClip.Core.Business;
+using ThixClip.Core.Infrastructure;
+using ThixClip.Core.Models;
+using ThixClip.Core.Platform;
+using ThixClip.Dialogs;
+using ThixClip.Shared;
+
+namespace ThixClip.Pages;
+
+/// <summary>
+/// The settings. Every change goes through the business layer (SettingsService, AutostartService, SyncService,
+/// UpdateService), which checks values and policies; an error is shown at its field or above the tabs.
+/// </summary>
+public partial class SettingsPage : UserControl
+{
+    public const string GeneralTab = "general";
+    public const string CloudTab = "cloud";
+    public const string UpdatesTab = "updates";
+
+    private bool _isLoading;
+    private UpdateManifest? _availableUpdate;
+
+    public SettingsPage()
+    {
+        InitializeComponent();
+        RetentionChoice.ItemsSource = SyncContract.RetentionChoices.Select(Ui.RetentionText).ToList();
+
+        HotkeyRecorder.Recorded += (_, text) => Apply(() =>
+        {
+            SettingsService.SetHotkey(text);
+            if (!App.Instance.RegisterHotkey())
+            {
+                throw new BusinessException("Das Tastenkürzel ist schon von einer anderen App belegt.", nameof(AppSettings.Hotkey));
+            }
+        });
+        AutostartSwitch.IsCheckedChanged += (_, _) => Apply(() =>
+        {
+            if (AutostartSwitch.IsChecked == true)
+            {
+                AutostartService.Enable(App.ExecutablePath);
+            }
+            else
+            {
+                AutostartService.Disable();
+            }
+        });
+        PasteSwitch.IsCheckedChanged += (_, _) => Apply(() => SettingsService.Update(settings => settings with { PasteOnSelect = PasteSwitch.IsChecked == true }));
+        HideSwitch.IsCheckedChanged += (_, _) => Apply(() => SettingsService.Update(settings => settings with { HideOnDeactivate = HideSwitch.IsChecked == true }));
+        ThemeChoice.SelectionChanged += (_, _) => Apply(() => SettingsService.Update(settings => settings with { Theme = (ThemeChoice)Math.Max(0, ThemeChoice.SelectedIndex) }));
+        RetentionChoice.SelectionChanged += async (_, _) =>
+        {
+            if (_isLoading || RetentionChoice.SelectedIndex < 0)
+            {
+                return;
+            }
+
+            await ApplyAsync(() => SettingsService.SetRetentionAsync(SyncContract.RetentionChoices[RetentionChoice.SelectedIndex]));
+        };
+        PauseSwitch.IsCheckedChanged += (_, _) => Apply(() => SettingsService.SetRecordingPaused(PauseSwitch.IsChecked == true));
+        ImagesSwitch.IsCheckedChanged += (_, _) => Apply(() => SettingsService.Update(settings => settings with { RecordImages = ImagesSwitch.IsChecked == true }));
+        OcrSwitch.IsCheckedChanged += (_, _) => Apply(() => SettingsService.Update(settings => settings with { RecognizeText = OcrSwitch.IsChecked == true }));
+        ConfidentialSwitch.IsCheckedChanged += (_, _) => Apply(() => SettingsService.Update(settings => settings with { IgnoreConfidential = ConfidentialSwitch.IsChecked == true }));
+        CheckUpdatesSwitch.IsCheckedChanged += (_, _) => Apply(() => SettingsService.Update(settings => settings with { CheckForUpdates = CheckUpdatesSwitch.IsChecked == true }));
+        AutoInstallSwitch.IsCheckedChanged += (_, _) => Apply(() => SettingsService.Update(settings => settings with { InstallUpdatesAutomatically = AutoInstallSwitch.IsChecked == true }));
+
+        SettingsService.Changed += (_, _) => Ui.Post(Load);
+        SyncService.StatusChanged += (_, _) => Ui.Post(LoadCloud);
+        UpdateCoordinator.Checked += (_, result) => ShowUpdateResult(result);
+        Load();
+    }
+
+    public void SelectTab(string tab) => Tabs.SelectedItem = tab switch
+    {
+        CloudTab => CloudTabItem,
+        UpdatesTab => UpdatesTabItem,
+        _ => GeneralTabItem,
+    };
+
+    /// <summary>Shows the stored settings (again after every change, also from the tray or the sidebar).</summary>
+    private void Load()
+    {
+        _isLoading = true;
+        try
+        {
+            var settings = SettingsService.Get();
+            var locked = AccessPolicy.IsConfigurationLocked;
+            PolicyNote.IsVisible = locked || AccessPolicy.IsCloudDisabled || AccessPolicy.AreUpdatesDisabled;
+
+            HotkeyRecorder.Hotkey = settings.Hotkey;
+            HotkeyRecorder.IsEnabled = HotkeyResetButton.IsEnabled = !locked;
+            HotkeyResetButton.IsVisible = settings.Hotkey != HotkeyService.DefaultHotkey;
+            AutostartSwitch.IsChecked = AutostartService.IsEnabled();
+            AutostartSwitch.IsEnabled = AutostartService.IsSupported && !locked;
+            PasteSwitch.IsChecked = settings.PasteOnSelect;
+            HideSwitch.IsChecked = settings.HideOnDeactivate;
+            ThemeChoice.SelectedIndex = (int)settings.Theme;
+            RetentionChoice.SelectedIndex = SyncContract.RetentionChoices.ToList().IndexOf(settings.RetentionDays);
+            foreach (var control in new Control[] { PasteSwitch, HideSwitch, ThemeChoice, RetentionChoice, ImagesSwitch, OcrSwitch, ConfidentialSwitch, CheckUpdatesSwitch, AutoInstallSwitch })
+            {
+                control.IsEnabled = !locked;
+            }
+
+            ShowAccessibilityHint(settings.PasteOnSelect);
+
+            PauseSwitch.IsChecked = settings.IsRecordingPaused;
+            ImagesSwitch.IsChecked = settings.RecordImages;
+            OcrSwitch.IsChecked = settings.RecognizeText;
+            ConfidentialSwitch.IsChecked = settings.IgnoreConfidential;
+            OcrRow.Description = OcrService.IsAvailable
+                ? "Die Suche findet auch Text in Screenshots. Läuft auf diesem Gerät, nichts verlässt den Computer."
+                : "Auf diesem Gerät ist keine Texterkennung verfügbar (Windows: Sprachpaket mit Texterkennung installieren).";
+
+            CheckUpdatesSwitch.IsChecked = settings.CheckForUpdates;
+            AutoInstallSwitch.IsChecked = settings.InstallUpdatesAutomatically;
+            InstalledVersionText.Text = AppInfo.Version;
+            ChannelText.Text = AppInfo.Channel switch
+            {
+                "release" => "Release (Branch main)",
+                "nightly" => "Nightly (Branch dev)",
+                _ => "Lokaler Build – keine Updates",
+            };
+            LastCheckText.Text = UpdateService.LastCheck is { } last ? Ui.FormatDateTime(last) : "–";
+            CheckUpdateButton.IsEnabled = UpdateService.CanUpdate;
+            CheckUpdatesSwitch.IsEnabled = AutoInstallSwitch.IsEnabled = UpdateService.CanUpdate && !locked;
+
+            DataFolderRow.Description = AppPaths.DataDirectory;
+            LogFolderRow.Description = AppPaths.LogDirectory;
+            LoadCloud();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void LoadCloud()
+    {
+        var cloud = SettingsService.Get().Cloud;
+        var status = SyncService.Status;
+        CloudLogin.IsVisible = !cloud.IsConnected;
+        CloudConnected.IsVisible = cloud.IsConnected;
+        CloudLogin.IsEnabled = !AccessPolicy.IsCloudDisabled;
+        if (AccessPolicy.IsCloudDisabled)
+        {
+            CloudMessage.Show("Die Cloud-Synchronisierung wurde von einem Administrator deaktiviert (Richtlinie DisableCloud).", InfoSeverity.Warning);
+        }
+        else if (status.State == CloudState.SignedOut)
+        {
+            CloudMessage.Show(status.Message, InfoSeverity.Warning);
+        }
+
+        if (!cloud.IsConnected)
+        {
+            if (string.IsNullOrEmpty(ServerUrlBox.Text))
+            {
+                ServerUrlBox.Text = cloud.ServerUrl;
+            }
+
+            if (string.IsNullOrEmpty(UserNameBox.Text))
+            {
+                UserNameBox.Text = cloud.UserName;
+            }
+
+            if (string.IsNullOrEmpty(DeviceNameBox.Text))
+            {
+                DeviceNameBox.Text = cloud.DeviceName.Length > 0 ? cloud.DeviceName : AppInfo.MachineName;
+            }
+
+            return;
+        }
+
+        CloudServerText.Text = cloud.ServerUrl;
+        CloudAccountText.Text = cloud.DisplayName.Length > 0 && cloud.DisplayName != cloud.UserName ? $"{cloud.DisplayName} ({cloud.UserName})" : cloud.UserName;
+        CloudDeviceText.Text = cloud.DeviceName;
+        CloudStateText.Text = status.Message;
+        CloudLastSyncText.Text = status.LastSync is { } last ? Ui.FormatDateTime(last) : "–";
+    }
+
+    private void ShowAccessibilityHint(bool pastes)
+    {
+        var needsPermission = pastes && OperatingSystem.IsMacOS() && !PasteTarget.CanSendKeys;
+        AccessibilityButton.IsVisible = needsPermission;
+        if (needsPermission)
+        {
+            AccessibilityInfo.Show("Zum Einfügen braucht ThixClip unter macOS die Erlaubnis „Bedienungshilfen“ (Systemeinstellungen › Datenschutz & Sicherheit). Bis dahin wird nur kopiert.", InfoSeverity.Warning);
+        }
+        else
+        {
+            AccessibilityInfo.Hide();
+        }
+    }
+
+    private void Apply(Action change)
+    {
+        if (_isLoading)
+        {
+            return;
+        }
+
+        try
+        {
+            FormField.ShowError(this, null, "");
+            PageMessage.Hide();
+            change();
+        }
+        catch (BusinessException exception)
+        {
+            ShowError(exception.Message, exception.Field);
+            Load();
+        }
+    }
+
+    private async Task ApplyAsync(Func<Task> change)
+    {
+        try
+        {
+            FormField.ShowError(this, null, "");
+            PageMessage.Hide();
+            await change();
+        }
+        catch (BusinessException exception)
+        {
+            ShowError(exception.Message, exception.Field);
+            Load();
+        }
+    }
+
+    private void ShowError(string message, string? field)
+    {
+        if (!FormField.ShowError(this, field, message))
+        {
+            PageMessage.Show(message, InfoSeverity.Error);
+        }
+    }
+
+    private void OnHotkeyResetClick(object? sender, RoutedEventArgs e) => Apply(() =>
+    {
+        SettingsService.SetHotkey(HotkeyService.DefaultHotkey);
+        App.Instance.RegisterHotkey();
+    });
+
+    private void OnAccessibilityClick(object? sender, RoutedEventArgs e)
+    {
+        PasteTarget.RequestKeyPermission();
+        Ui.OpenExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility");
+    }
+
+    private async void OnConnectClick(object? sender, RoutedEventArgs e)
+    {
+        ConnectButton.IsEnabled = false;
+        CloudMessage.Hide();
+        try
+        {
+            FormField.ShowError(this, null, "");
+            await SyncService.ConnectAsync(ServerUrlBox.Text ?? "", UserNameBox.Text ?? "", PasswordBox.Text ?? "", DeviceNameBox.Text ?? "");
+            PasswordBox.Text = "";
+            CloudMessage.Show("Verbunden. Dein Verlauf wird jetzt mit der Cloud abgeglichen.", InfoSeverity.Success);
+        }
+        catch (BusinessException exception)
+        {
+            if (!FormField.ShowError(this, exception.Field, exception.Message))
+            {
+                CloudMessage.Show(exception.Message, InfoSeverity.Error);
+            }
+        }
+        finally
+        {
+            ConnectButton.IsEnabled = true;
+            LoadCloud();
+        }
+    }
+
+    private void OnSyncNowClick(object? sender, RoutedEventArgs e) => SyncService.Kick();
+
+    private void OnOpenCloudClick(object? sender, RoutedEventArgs e) => Ui.OpenExternal(SettingsService.Get().Cloud.ServerUrl);
+
+    private async void OnDisconnectClick(object? sender, RoutedEventArgs e)
+    {
+        if (!await ConfirmDialog.AskAsync(Ui.WindowOf(this), "Von der Cloud abmelden?",
+                "Dieser Computer wird aus deinem Cloud-Konto entfernt und gleicht nicht mehr ab. Der Verlauf auf diesem Computer bleibt erhalten.",
+                "Abmelden", isDestructive: true))
+        {
+            return;
+        }
+
+        await SyncService.DisconnectAsync();
+        CloudMessage.Show("Abgemeldet.", InfoSeverity.Info);
+        LoadCloud();
+    }
+
+    private async void OnCheckUpdateClick(object? sender, RoutedEventArgs e)
+    {
+        CheckUpdateButton.IsEnabled = false;
+        try
+        {
+            ShowUpdateResult(await UpdateCoordinator.CheckAsync());
+        }
+        catch (BusinessException exception)
+        {
+            UpdateMessage.Show(exception.Message, InfoSeverity.Error);
+        }
+        finally
+        {
+            CheckUpdateButton.IsEnabled = UpdateService.CanUpdate;
+            LastCheckText.Text = UpdateService.LastCheck is { } last ? Ui.FormatDateTime(last) : "–";
+        }
+    }
+
+    private void ShowUpdateResult(UpdateCheckResult result)
+    {
+        _availableUpdate = result.Manifest;
+        InstallUpdateButton.IsVisible = result.IsUpdateAvailable;
+        UpdateMessage.Show(result.Message, result.IsUpdateAvailable ? InfoSeverity.Success : InfoSeverity.Info);
+    }
+
+    private async void OnInstallUpdateClick(object? sender, RoutedEventArgs e)
+    {
+        if (_availableUpdate is null)
+        {
+            return;
+        }
+
+        InstallUpdateButton.IsEnabled = CheckUpdateButton.IsEnabled = false;
+        UpdateProgress.IsVisible = true;
+        try
+        {
+            await UpdateCoordinator.InstallAsync(_availableUpdate, new Progress<double>(value => UpdateProgress.Value = value));
+        }
+        catch (Exception exception) when (exception is BusinessException or HttpRequestException or IOException)
+        {
+            UpdateMessage.Show($"Das Update ist fehlgeschlagen: {exception.Message}", InfoSeverity.Error);
+            InstallUpdateButton.IsEnabled = CheckUpdateButton.IsEnabled = true;
+            UpdateProgress.IsVisible = false;
+        }
+    }
+
+    private void OnReleasePageClick(object? sender, RoutedEventArgs e) => Ui.OpenExternal(UpdateService.ReleasePageUrl(AppInfo.IsLocalBuild ? "release" : AppInfo.Channel));
+
+    private void OnOpenDataFolderClick(object? sender, RoutedEventArgs e) => Ui.OpenExternal(AppPaths.DataDirectory);
+
+    private void OnOpenLogFolderClick(object? sender, RoutedEventArgs e)
+    {
+        Directory.CreateDirectory(AppPaths.LogDirectory);
+        Ui.OpenExternal(AppPaths.LogDirectory);
+    }
+}

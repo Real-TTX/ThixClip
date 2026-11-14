@@ -1,0 +1,49 @@
+@page "/About"
+@{
+    ViewData["Title"] = "Über ThixClip";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Über ThixClip", null) };
+    ViewData["Width"] = "narrow";
+    var channel = AppInfo.Channel switch { "release" => "Release", "nightly" => "Nightly (Entwicklung)", _ => "Lokaler Build" };
+}
+
+<div class="mat-card">
+    <div class="mat-card__body tc-about">
+        <div class="tc-about__head">
+            @Ui.Logo("lg")
+            <div>
+                <h2>ThixClip.Cloud</h2>
+                <p>Der Zwischenablage-Verlauf aller deiner PCs und Macs – synchron, durchsuchbar und im Browser erreichbar.</p>
+            </div>
+        </div>
+        <dl class="tc-facts">
+            <dt>@Ui.Icon("tag")Version</dt><dd class="mat-mono">@AppInfo.Version</dd>
+            <dt>@Ui.Icon("git")Kanal</dt><dd>@channel</dd>
+            <dt>@Ui.Icon("network")Sync-Protokoll</dt><dd class="mat-mono">v@(SyncContract.ProtocolVersion)</dd>
+        </dl>
+    </div>
+</div>
+
+<div class="mat-card">
+    <div class="mat-card__head"><h2 class="mat-card__title">@Ui.Icon("download")Die Desktop-App</h2></div>
+    <div class="mat-card__body">
+        <p>ThixClip für Windows und macOS merkt sich alles, was du kopierst, und öffnet den Verlauf mit <kbd>Strg</kbd> <kbd>Win</kbd> <kbd>V</kbd> (Windows) bzw. <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>V</kbd> (Mac).
+           Melde die App in ihren Einstellungen unter „Cloud“ mit der Adresse dieser Seite und deinem Konto an – dann sind die Einträge auf allen Geräten und hier.</p>
+        <p><a href="https://github.com/Real-TTX/ThixClip/releases" target="_blank" rel="noopener">@Ui.Icon("external") Downloads und Versionen auf GitHub</a></p>
+    </div>
+</div>
+
+<div class="mat-card">
+    <div class="mat-card__head"><h2 class="mat-card__title">@Ui.Icon("terminal")Tastatur</h2></div>
+    <div class="mat-card__body">
+        <dl class="tc-facts">
+            <dt><kbd>/</kbd></dt><dd>In die Suche des Verlaufs springen</dd>
+            <dt><kbd>Enter</kbd></dt><dd>Suche ausführen</dd>
+        </dl>
+    </div>
+</div>
+
+<div class="mat-card">
+    <div class="mat-card__body">
+        <p class="mat-muted">© Matthias Schmoldt. Oberfläche: MatUi (MatDesign). Bilder: SkiaSharp. Datenbank: PostgreSQL.</p>
+    </div>
+</div>

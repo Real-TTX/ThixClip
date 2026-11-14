@@ -1,0 +1,31 @@
+@page "/Account/Device"
+@model ThixClip.Cloud.Pages.Account.DeviceModel
+@{
+    var d = Model.Device;
+    ViewData["Title"] = d.Name;
+    ViewData["PageSub"] = $"{DeviceService.PlatformName(d.Platform)} · zuletzt gesehen {Dates.Ago(d.LastSeenDate)}";
+    ViewData["Crumbs"] = new List<(string, string?)> { ("Konto", "/Account"), ("Geräte", "/Account/Devices"), (d.Name, null) };
+    ViewData["Width"] = "narrow";
+}
+
+<form class="mat-form" method="post" novalidate>
+    <partial name="_FormSummary" model="ViewData.ModelState" />
+    <div class="mat-card">
+        <div class="mat-card__body mat-form">
+            <tc-field name="Name" label="Name" required value="@Model.Name" maxlength="100" msg-required="Bitte einen Namen eingeben." hint="Steht bei den Einträgen dieses Geräts als Quelle." />
+        </div>
+    </div>
+    <div class="mat-card">
+        <div class="mat-card__body">
+            <dl class="tc-facts">
+                <dt>@Ui.Icon(DeviceService.PlatformIcon(d.Platform))System</dt><dd>@DeviceService.PlatformName(d.Platform)</dd>
+                <dt>@Ui.Icon("tag")App-Version</dt><dd class="mat-mono">@(d.AppVersion.Length == 0 ? "–" : d.AppVersion)</dd>
+                <dt>@Ui.Icon("clock")Zuletzt gesehen</dt><dd>@Dates.Stamp(d.LastSeenDate) (@Dates.Ago(d.LastSeenDate))</dd>
+                <dt>@Ui.Icon("calendar")Angemeldet seit</dt><dd>@Dates.Stamp(d.CreateDate)</dd>
+                <dt>@Ui.Icon("globe")Adresse</dt><dd class="mat-mono">@(d.IpAddress ?? "–")</dd>
+            </dl>
+        </div>
+    </div>
+    <tc-buttons save="Speichern" back="/Account/Devices" delete-handler="Delete" delete-label="Entfernen"
+                delete-confirm="Dieses Gerät entfernen? ThixClip auf dem Gerät synchronisiert dann nicht mehr, bis es sich neu anmeldet. Die Einträge bleiben erhalten." />
+</form>
