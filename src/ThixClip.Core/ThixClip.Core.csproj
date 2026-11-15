@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="ThixClip.Tests" />
+    <InternalsVisibleTo Include="ThixClip" />
   </ItemGroup>
 
   <ItemGroup>

@@ -59,7 +59,6 @@ public partial class SettingsPage : UserControl
 
             await ApplyAsync(() => SettingsService.SetRetentionAsync(SyncContract.RetentionChoices[RetentionChoice.SelectedIndex]));
         };
-        PauseSwitch.IsCheckedChanged += (_, _) => Apply(() => SettingsService.SetRecordingPaused(PauseSwitch.IsChecked == true));
         ImagesSwitch.IsCheckedChanged += (_, _) => Apply(() => SettingsService.Update(settings => settings with { RecordImages = ImagesSwitch.IsChecked == true }));
         OcrSwitch.IsCheckedChanged += (_, _) => Apply(() => SettingsService.Update(settings => settings with { RecognizeText = OcrSwitch.IsChecked == true }));
         ConfidentialSwitch.IsCheckedChanged += (_, _) => Apply(() => SettingsService.Update(settings => settings with { IgnoreConfidential = ConfidentialSwitch.IsChecked == true }));
@@ -67,6 +66,7 @@ public partial class SettingsPage : UserControl
         AutoInstallSwitch.IsCheckedChanged += (_, _) => Apply(() => SettingsService.Update(settings => settings with { InstallUpdatesAutomatically = AutoInstallSwitch.IsChecked == true }));
 
         SettingsService.Changed += (_, _) => Ui.Post(Load);
+        RecordingService.Changed += (_, _) => Ui.Post(LoadPause);
         SyncService.StatusChanged += (_, _) => Ui.Post(LoadCloud);
         UpdateCoordinator.Checked += (_, result) => ShowUpdateResult(result);
         Load();
@@ -105,7 +105,7 @@ public partial class SettingsPage : UserControl
 
             ShowAccessibilityHint(settings.PasteOnSelect);
 
-            PauseSwitch.IsChecked = settings.IsRecordingPaused;
+            LoadPause();
             ImagesSwitch.IsChecked = settings.RecordImages;
             OcrSwitch.IsChecked = settings.RecognizeText;
             ConfidentialSwitch.IsChecked = settings.IgnoreConfidential;
@@ -135,6 +135,19 @@ public partial class SettingsPage : UserControl
             _isLoading = false;
         }
     }
+
+    /// <summary>The pause: what runs now and the button that changes it (the dialog asks how long).</summary>
+    private void LoadPause()
+    {
+        var paused = RecordingService.IsPaused;
+        PauseRow.Description = paused
+            ? $"{RecordingService.Describe()} – Kopiertes kommt gerade nicht in den Verlauf."
+            : $"Für eine Weile nichts aufnehmen, z. B. bei vertraulicher Arbeit ({Ui.PauseShortcut}, auch im Menü des Symbols).";
+        PauseSettingLabel.Icon = Ui.Icon(paused ? "Icon.Play" : "Icon.Pause");
+        PauseSettingLabel.Text = paused ? "Fortsetzen" : "Pausieren …";
+    }
+
+    private async void OnPauseClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => await App.Instance.TogglePauseAsync(Ui.WindowOf(this));
 
     private void LoadCloud()
     {

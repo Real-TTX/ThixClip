@@ -40,14 +40,17 @@
         <StackPanel x:Name="WelcomePage">
           <TextBlock x:Name="WelcomeTitle" Text="Willkommen" Theme="{StaticResource SectionTitle}" FontSize="20" Margin="0,0,0,10" />
           <TextBlock x:Name="WelcomeText" TextWrapping="Wrap" Margin="0,0,0,16" LineHeight="21"
-                     Text="ThixClip merkt sich, was du kopierst – Texte, Links und Bilder – und holt es mit Strg + Win + V zurück. Es läuft im Infobereich der Taskleiste." />
+                     Text="ThixClip merkt sich, was du kopierst – Texte, Links und Bilder – und holt es mit Strg + Umschalt + V zurück. Es läuft im Infobereich der Taskleiste." />
           <Border x:Name="OptionsCard" Theme="{StaticResource Card}" Padding="18,2" Margin="0,0,0,14">
             <StackPanel>
               <controls:SettingRow Title="Bei der Windows-Anmeldung starten" Description="Im Infobereich, ohne Fenster">
                 <ToggleSwitch x:Name="AutostartToggle" IsChecked="True" OnContent="" OffContent="" AutomationProperties.Name="Bei der Windows-Anmeldung starten" />
               </controls:SettingRow>
-              <controls:SettingRow Title="Verknüpfung auf dem Desktop" Description="Ein Startmenü-Eintrag wird immer angelegt" BorderThickness="0">
+              <controls:SettingRow Title="Verknüpfung auf dem Desktop" Description="Ein Startmenü-Eintrag wird immer angelegt">
                 <ToggleSwitch x:Name="DesktopToggle" OnContent="" OffContent="" AutomationProperties.Name="Verknüpfung auf dem Desktop" />
+              </controls:SettingRow>
+              <controls:SettingRow Title="Updates automatisch installieren" Description="Neue Versionen ohne Rückfrage, ThixClip startet danach neu" BorderThickness="0">
+                <ToggleSwitch x:Name="AutoUpdateToggle" IsChecked="True" OnContent="" OffContent="" AutomationProperties.Name="Updates automatisch installieren" />
               </controls:SettingRow>
             </StackPanel>
           </Border>

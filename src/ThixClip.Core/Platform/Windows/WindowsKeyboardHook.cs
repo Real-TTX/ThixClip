@@ -6,8 +6,8 @@ namespace ThixClip.Core.Platform.Windows;
 
 /// <summary>
 /// The global shortcut on Windows: a low-level keyboard hook on its own thread with a message loop. It sees a key before
-/// Windows and every other program does, so ThixClip's shortcut wins even over combinations the shell has taken (the
-/// default Ctrl+Win+V would otherwise open the sound settings): the key press is swallowed and never reaches anyone else.
+/// Windows and every other program does, so ThixClip's shortcut wins even over combinations the shell or other programs
+/// have taken (Ctrl+Win+V opens the sound settings, Ctrl+Shift+V pastes plain text in many apps): the key press is swallowed and never reaches anyone else.
 /// When the combination contains the Windows key, an unassigned key is sent in between, so releasing Win does not open the
 /// Start menu (the same trick AutoHotkey uses).
 /// The same thread owns a message-only window: the owner of what ThixClip writes to the clipboard.

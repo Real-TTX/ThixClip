@@ -6,7 +6,8 @@ using ThixClip.Core.Infrastructure;
 namespace ThixClip.Core.Business;
 
 /// <summary>What the setup decides on a first installation. An update keeps what is installed.</summary>
-public sealed record InstallOptions(bool StartWithWindows, bool DesktopShortcut);
+/// <summary>The choices of the setup assistant; an update (null) keeps what the user has.</summary>
+public sealed record InstallOptions(bool StartWithWindows, bool DesktopShortcut, bool InstallUpdatesAutomatically = true);
 
 /// <summary>
 /// Windows only (macOS: the app bundle, <see cref="MacAppBundle"/>). ThixClip installs itself - like ThixTunnel, the
@@ -103,6 +104,11 @@ public static class InstallService
                 AutostartService.WriteEntry(InstalledExecutable);
                 log("Autostart bei der Windows-Anmeldung eingerichtet");
             }
+        }
+
+        if (options is not null)
+        {
+            ApplyUpdateChoice(options.InstallUpdatesAutomatically, log);
         }
 
         WriteUninstallEntry();
@@ -234,17 +240,24 @@ public static class InstallService
         }
     }
 
+    /// <summary>"Updates automatisch installieren" of the setup; a locked configuration (policy) keeps its value.</summary>
+    private static void ApplyUpdateChoice(bool installAutomatically, Action<string> log)
+    {
+        try
+        {
+            SettingsService.Update(settings => settings with { InstallUpdatesAutomatically = installAutomatically });
+            log(installAutomatically ? "Updates werden automatisch installiert" : "Updates werden nur angeboten");
+        }
+        catch (Models.BusinessException exception)
+        {
+            log(exception.Message);
+        }
+    }
+
     private static void CreateShortcut(string path, string description)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var shellType = Type.GetTypeFromProgID("WScript.Shell") ?? throw new InvalidOperationException("WScript.Shell is not available.");
-        dynamic shell = Activator.CreateInstance(shellType)!;
-        dynamic shortcut = shell.CreateShortcut(path);
-        shortcut.TargetPath = InstalledExecutable;
-        shortcut.WorkingDirectory = ProgramFolder;
-        shortcut.Description = description;
-        shortcut.IconLocation = InstalledExecutable + ",0";
-        shortcut.Save();
+        Platform.Windows.ShellLink.Write(path, InstalledExecutable, ProgramFolder, description, InstalledExecutable);
     }
 
     private static void WriteUninstallEntry()

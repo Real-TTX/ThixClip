@@ -39,6 +39,8 @@ public partial class App : Application
     private MainWindow? _mainWindow;
     private DispatcherTimer? _retentionTimer;
     private bool _isExiting;
+    private bool _isAskingPause;
+    private PauseLength _lastPause = PauseLength.Minutes30;
 
     /// <summary>The program file; the autostart entry points to it.</summary>
     public static string ExecutablePath => Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "ThixClip");
@@ -57,6 +59,14 @@ public partial class App : Application
 
         _desktop = desktop;
         var args = desktop.Args ?? [];
+
+        var selfTest = Array.IndexOf(args, SelfTest.Argument);
+        if (selfTest >= 0)
+        {
+            var report = selfTest + 1 < args.Length ? args[selfTest + 1] : Path.Combine(AppPaths.DataDirectory, "self-test.txt");
+            Dispatcher.UIThread.Post(async () => EndProcess(await SelfTest.RunAsync(report)));
+            return;
+        }
 
         if (OperatingSystem.IsWindows() && RunSetupIfRequested(args))
         {
@@ -84,9 +94,11 @@ public partial class App : Application
     private void Start(string[] args)
     {
         Dispatcher.UIThread.UnhandledException += OnUnhandledException;
+        UiWatchdog.Start();
         Log.Info($"ThixClip {AppInfo.Version} starting on {UpdateService.PlatformKey} ({string.Join(' ', args)})");
 
         ClipService.Initialize();
+        RecordingService.Initialize();
         ApplyTheme(SettingsService.Get().Theme);
         SettingsService.Changed += (_, settings) => Ui.Post(() => ApplyTheme(settings.Theme));
 
@@ -108,6 +120,9 @@ public partial class App : Application
             // Build the window's visuals once, off screen, so the first shortcut opens it as fast as every later one.
             _mainWindow.Prewarm();
         }
+
+        // Crashed or hung last time: say so, with the report.
+        Dispatcher.UIThread.Post(() => Dialogs.ProblemReportDialog.ShowUnseen(), DispatcherPriority.Background);
 
         // macOS: opening the app again (Finder, Spotlight) shows the window.
         if (TryGetFeature(typeof(IActivatableLifetime)) is IActivatableLifetime activatable)
@@ -188,6 +203,39 @@ public partial class App : Application
 
         _mainWindow.ShowFromTray(rememberForeground: true);
         navigate?.Invoke(_mainWindow);
+    }
+
+    /// <summary>
+    /// The pause button (main window, tray, settings, Ctrl/Cmd+Shift+P): a running pause ends at once, otherwise the dialog
+    /// asks how long. The last length is offered again while the app runs.
+    /// </summary>
+    public async Task TogglePauseAsync(Window? owner = null)
+    {
+        if (RecordingService.IsPaused)
+        {
+            RecordingService.Resume();
+            return;
+        }
+
+        if (_isAskingPause)
+        {
+            return;
+        }
+
+        _isAskingPause = true;
+        try
+        {
+            owner ??= _mainWindow is { IsVisible: true } ? _mainWindow : null;
+            if (await Dialogs.PauseDialog.AskAsync(owner, _lastPause) is { } length)
+            {
+                _lastPause = length;
+                RecordingService.Pause(length);
+            }
+        }
+        finally
+        {
+            _isAskingPause = false;
+        }
     }
 
     public void ApplyTheme(ThemeChoice theme) => RequestedThemeVariant = theme switch

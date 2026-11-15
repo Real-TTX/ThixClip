@@ -21,6 +21,7 @@ internal sealed class TestData : IDisposable
         SettingsStore.Reset();
         ClipService.ResetForTests();
         ClipboardMonitor.ResetForTests();
+        RecordingService.ResetForTests();
         TokenStore.UseMemoryForTests(true);
         AccessPolicy.UsePolicyReaderForTests(_ => false);
         Clipboard = new FakeClipboard();
@@ -43,6 +44,7 @@ internal sealed class TestData : IDisposable
         AccessPolicy.UsePolicyReaderForTests(null);
         TokenStore.UseMemoryForTests(false);
         ClipService.ResetForTests();
+        RecordingService.ResetForTests();
         SettingsStore.Reset();
         AppPaths.UseDirectoryForTests(null);
         try

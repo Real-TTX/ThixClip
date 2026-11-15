@@ -12,7 +12,7 @@ public enum ThemeChoice
 /// <summary>The settings of this computer (settings.json). Only <see cref="Business.SettingsService"/> writes them.</summary>
 public sealed record AppSettings
 {
-    /// <summary>The global shortcut that opens ThixClip, e.g. "Ctrl+Win+V" (Windows) or "Ctrl+Alt+V" (macOS).</summary>
+    /// <summary>The global shortcut that opens ThixClip, e.g. "Ctrl+Shift+V" (Windows) or "Ctrl+Alt+V" (macOS).</summary>
     public string Hotkey { get; init; } = Business.HotkeyService.DefaultHotkey;
 
     /// <summary>Choosing an entry pastes it into the app that was in front (otherwise it is only copied).</summary>
@@ -29,8 +29,11 @@ public sealed record AppSettings
     /// <summary>Recognise the text of images (search finds it).</summary>
     public bool RecognizeText { get; init; } = true;
 
-    /// <summary>Recording is paused (tray menu): copies are not added to the history.</summary>
+    /// <summary>Recording is paused: copies are not added to the history (<see cref="Business.RecordingService"/>).</summary>
     public bool IsRecordingPaused { get; init; }
+
+    /// <summary>The end of a timed pause (null: until the user resumes).</summary>
+    public DateTimeOffset? RecordingPausedUntil { get; init; }
 
     /// <summary>How long entries are kept (0 = forever). With the cloud it is the setting of the account.</summary>
     public int RetentionDays { get; init; } = SyncContract.DefaultRetentionDays;
@@ -39,8 +42,8 @@ public sealed record AppSettings
 
     public bool CheckForUpdates { get; init; } = true;
 
-    /// <summary>Full auto update: install new versions without asking.</summary>
-    public bool InstallUpdatesAutomatically { get; init; }
+    /// <summary>Full auto update: install new versions without asking (on by default, the setup offers it).</summary>
+    public bool InstallUpdatesAutomatically { get; init; } = true;
 
     /// <summary>Size of the main window (device-independent pixels).</summary>
     public double WindowWidth { get; init; } = 1180;

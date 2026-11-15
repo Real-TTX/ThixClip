@@ -21,7 +21,7 @@ namespace ThixClip;
 /// focused and the newest entry chosen, and hides it again. Everything works with the keyboard:
 ///   typing = search, ↑ ↓ PageUp PageDown = choose, Enter = paste (or copy), Esc = clear search / close,
 ///   Cmd/Ctrl+C copy, +D favourite, +P pin, +Delete (macOS Cmd+Backspace) delete, +F search, +1/2/3 sections,
-///   +, settings, +B fold the menu, +Shift+Delete (macOS Cmd+Shift+Backspace) "Verlauf löschen" as in a browser,
+///   +, settings, +B fold the menu, +O open the entry, +Shift+P pause / resume recording, +Shift+Delete (macOS Cmd+Shift+Backspace) "Verlauf löschen" as in a browser,
 ///   Alt+1 ... Alt+9 paste the n-th entry at once.
 /// </summary>
 public partial class MainWindow : ThemedWindow
@@ -94,6 +94,9 @@ public partial class MainWindow : ThemedWindow
             RetentionDescription.IsVisible = RetentionHint.IsVisible = e.NewSize.Height >= 640;
             ApplySidebarWidth(e.NewSize.Width);
         };
+
+        RecordingService.Changed += (_, _) => Ui.Post(RefreshPause);
+        RefreshPause();
 
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
         Deactivated += (_, _) => HideWhenAnotherAppComesFirst();
@@ -315,7 +318,10 @@ public partial class MainWindow : ThemedWindow
         var withCommand = e.KeyModifiers.HasFlag(command);
         var onHistory = PageHost.Content == _history;
         var inSearch = SearchBox.IsFocused;
-        var inList = FocusManager?.GetFocusedElement() is ListBoxItem or ListBox;
+        // The list keys work wherever the focus is on the history page except in a field or a drop-down: after a deletion
+        // the focused row is gone (focus on nothing), after a click it is on a button of the detail pane.
+        var focused = FocusManager?.GetFocusedElement();
+        var inList = focused is not (TextBox or ComboBox or ComboBoxItem or ToggleSwitch);
 
         switch (e.Key)
         {
@@ -356,6 +362,11 @@ public partial class MainWindow : ThemedWindow
             case Key.B when withCommand:
                 e.Handled = true;
                 ToggleSidebar();
+                return;
+
+            case Key.P when withCommand && e.KeyModifiers.HasFlag(KeyModifiers.Shift):
+                e.Handled = true;
+                _ = App.Instance.TogglePauseAsync(this);
                 return;
 
             case Key.Delete when withCommand && e.KeyModifiers.HasFlag(KeyModifiers.Shift):
@@ -424,10 +435,15 @@ public partial class MainWindow : ThemedWindow
                 e.Handled = true;
                 _history.TogglePinOfSelected();
                 break;
+            case Key.O when withCommand:
+                e.Handled = true;
+                _history.OpenSelected();
+                break;
             case Key.Delete when withCommand:
             case Key.Back when withCommand && OperatingSystem.IsMacOS():
+            case Key.Delete when e.KeyModifiers == KeyModifiers.None && (!inSearch || string.IsNullOrEmpty(SearchBox.Text)):
                 e.Handled = true;
-                _history.DeleteSelected();
+                _history.DeleteSelected(keepListFocus: !inSearch);
                 break;
         }
     }
@@ -636,6 +652,23 @@ public partial class MainWindow : ThemedWindow
         WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
 
     private void OnCloseClick(object? sender, RoutedEventArgs e) => HideWindow(returnToPrevious: true);
+
+    /// <summary>
+    /// The pause button of the header: recording shows "Pausieren" (quiet), a pause an amber "Fortsetzen" with its end,
+    /// so nobody forgets that copies are not recorded right now.
+    /// </summary>
+    private void RefreshPause()
+    {
+        var paused = RecordingService.IsPaused;
+        PauseButton.Theme = paused ? Ui.Theme("WarningButton") : null; // null: the normal framed button, always in sight
+        PauseLabel.Icon = Ui.Icon(paused ? "Icon.Play" : "Icon.Pause");
+        var until = RecordingService.PausedUntil;
+        PauseLabel.Text = !paused ? "Pausieren" : until is { } end ? $"Fortsetzen · pausiert bis {end.ToLocalTime():HH:mm}" : $"Fortsetzen · {RecordingService.Describe().ToLowerInvariant()}";
+        ToolTip.SetTip(PauseButton, paused ? $"Aufzeichnung fortsetzen ({Ui.PauseShortcut})" : $"Aufzeichnung pausieren … ({Ui.PauseShortcut})");
+        AutomationProperties.SetName(PauseButton, paused ? "Aufzeichnung fortsetzen" : "Aufzeichnung pausieren");
+    }
+
+    private async void OnPauseClick(object? sender, RoutedEventArgs e) => await App.Instance.TogglePauseAsync(this);
 
     private void OnHotkeyBadgeClick(object? sender, RoutedEventArgs e) => ShowSettings(SettingsPage.GeneralTab);
 

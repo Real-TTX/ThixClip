@@ -51,12 +51,12 @@ public static class ClipboardMonitor
         }
 
         _lastChangeCount = changeCount;
-        var settings = SettingsService.Get();
-        if (settings.IsRecordingPaused)
+        if (RecordingService.IsPaused)
         {
             return;
         }
 
+        var settings = SettingsService.Get();
         var snapshot = NativeClipboard.Read(settings.RecordImages);
         ClipService.Capture(snapshot);
     }

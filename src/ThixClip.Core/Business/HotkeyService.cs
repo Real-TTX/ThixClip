@@ -7,12 +7,12 @@ namespace ThixClip.Core.Business;
 
 /// <summary>
 /// The global shortcut that opens ThixClip: parsing, display, validation and the registration with the system.
-/// Defaults: Ctrl+Win+V on Windows, Ctrl+Option+V (stored "Ctrl+Alt+V") on macOS. ThixClip's shortcut takes precedence:
+/// Defaults: Ctrl+Shift+V on Windows, Ctrl+Option+V (stored "Ctrl+Alt+V") on macOS. ThixClip's shortcut takes precedence:
 /// on Windows a keyboard hook swallows it before anyone else sees it, on macOS the Carbon hot key belongs to ThixClip.
 /// </summary>
 public static class HotkeyService
 {
-    public static readonly string DefaultHotkey = OperatingSystem.IsMacOS() ? "Ctrl+Alt+V" : "Ctrl+Win+V";
+    public static readonly string DefaultHotkey = OperatingSystem.IsMacOS() ? "Ctrl+Alt+V" : "Ctrl+Shift+V";
 
     private static readonly string[] FunctionKeys = Enumerable.Range(1, 12).Select(number => $"F{number}").ToArray();
 
@@ -92,7 +92,7 @@ public static class HotkeyService
         return string.Join('+', parts);
     }
 
-    /// <summary>For the user: "Ctrl + Win + V" on Windows, "⌃⌥V" on macOS.</summary>
+    /// <summary>For the user: "Strg + Umschalt + V" on Windows, "⌃⌥V" on macOS.</summary>
     public static string Display(Hotkey hotkey)
     {
         if (OperatingSystem.IsMacOS())
@@ -142,7 +142,7 @@ public static class HotkeyService
         {
             throw new BusinessException(OperatingSystem.IsMacOS()
                 ? "Das Tastenkürzel braucht zwei Sondertasten (z. B. ⌃⌥V) – ⌘V und Co. gehören den Apps."
-                : "Das Tastenkürzel braucht Win oder zwei Sondertasten (z. B. Strg + Win + V) – Strg + V und Co. gehören den Programmen.",
+                : "Das Tastenkürzel braucht Win oder zwei Sondertasten (z. B. Strg + Umschalt + V) – Strg + V und Co. gehören den Programmen.",
                 nameof(AppSettings.Hotkey));
         }
 

@@ -25,6 +25,9 @@ public static class AppPaths
 
     public static string LogDirectory => Path.Combine(DataDirectory, "logs");
 
+    /// <summary>Texts and images handed to another program ("Öffnen"); emptied at every start.</summary>
+    public static string OpenDirectory => Path.Combine(DataDirectory, "open");
+
     /// <summary>True when a developer or a test pointed ThixClip to its own folder: it is then its own instance.</summary>
     public static bool HasOverride => _dataDirectoryOverride is not null;
 

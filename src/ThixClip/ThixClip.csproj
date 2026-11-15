@@ -17,8 +17,6 @@
     <AvaloniaVersion>11.3.22</AvaloniaVersion>
     <!-- Bindings in data templates resolve by reflection (the rows are plain view models). -->
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
-    <!-- InstallService creates Windows shortcuts through the WScript.Shell COM object. -->
-    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <SupportedOSPlatformVersion Condition="'$(OS)' == 'Windows_NT'">10.0.17763.0</SupportedOSPlatformVersion>
     <!-- Start-up speed: the app starts at sign-in and must open its window at once. -->
     <TieredPGO>true</TieredPGO>
@@ -36,9 +34,19 @@
     <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
 
-  <!-- Windows: one file, which is also the setup (App.RunSetupIfRequested). -->
+  <!--
+    Windows: one file, which is also the setup (App.RunSetupIfRequested). Trimmed in "partial" mode: only libraries that
+    declare themselves trimmable (the .NET runtime, the Windows SDK projection of the OCR, Avalonia) lose what ThixClip
+    never calls; ThixClip's own assemblies stay whole, so reflection bindings and the JSON of our own types keep working.
+    That halves the download (about 75 MB to 38 MB). The self test of the published program (SelfTest.cs, run by CI)
+    proves that the trimmed program works.
+  -->
   <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('win-'))">
     <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <!-- Settings, sync and the update manifest use reflection-based JSON (our own types, kept whole). -->
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
     <DefineConstants>$(DefineConstants);SINGLE_FILE</DefineConstants>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>

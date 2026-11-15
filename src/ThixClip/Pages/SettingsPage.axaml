@@ -56,8 +56,10 @@
           <!-- ===== Recording / privacy ===== -->
           <TabItem x:Name="RecordingTabItem" Header="Aufzeichnung">
             <StackPanel>
-              <controls:SettingRow Title="Aufzeichnung pausieren" Description="Kopiertes wird nicht in den Verlauf aufgenommen (auch im Menü des Symbols).">
-                <ToggleSwitch x:Name="PauseSwitch" OnContent="" OffContent="" AutomationProperties.Name="Aufzeichnung pausieren" />
+              <controls:SettingRow x:Name="PauseRow" Title="Aufzeichnung pausieren">
+                <Button x:Name="PauseSettingButton" Click="OnPauseClick">
+                  <controls:IconLabel x:Name="PauseSettingLabel" Icon="{StaticResource Icon.Pause}" Text="Pausieren …" />
+                </Button>
               </controls:SettingRow>
               <controls:SettingRow Title="Bilder aufzeichnen" Description="Screenshots und kopierte Bilder kommen in den Verlauf.">
                 <ToggleSwitch x:Name="ImagesSwitch" OnContent="" OffContent="" AutomationProperties.Name="Bilder aufzeichnen" />

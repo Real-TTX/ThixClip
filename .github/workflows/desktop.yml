@@ -121,6 +121,16 @@ jobs:
       - name: Publish (win-x64, self-contained single file)
         run: dotnet publish src/ThixClip/ThixClip.csproj -c Release -r win-x64 -o publish ${{ needs.version.outputs.props }}
 
+      # The published program is trimmed: it checks itself (SelfTest.cs) – JSON, SQLite, SkiaSharp, the token store, OCR,
+      # shortcuts (COM) and every window – before anybody downloads it.
+      - name: Self test of the published program
+        shell: pwsh
+        timeout-minutes: 5
+        run: |
+          $process = Start-Process -FilePath publish\ThixClip.exe -ArgumentList '--self-test', "$PWD\self-test.txt" -Wait -PassThru
+          if (Test-Path self-test.txt) { Get-Content self-test.txt } else { Write-Host 'no report written' }
+          if ($process.ExitCode -ne 0) { throw "self test failed (exit code $($process.ExitCode))" }
+
       # ThixClip.exe is its own setup (InstallService): started from the download it installs itself per user,
       # "--update" is the silent update, "--uninstall" the uninstaller. No installer tool needed.
       - name: Package setup

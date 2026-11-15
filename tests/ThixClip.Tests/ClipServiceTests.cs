@@ -59,10 +59,86 @@ public sealed class ClipServiceTests : IDisposable
         Assert.Null(ClipService.CaptureText("   \n "));
         Assert.Null(ClipService.Capture(new ClipboardSnapshot(null, null, false, IsConfidential: true)));
 
-        SettingsService.SetRecordingPaused(true);
+        RecordingService.Pause(PauseLength.UntilResumed);
         _data.Clipboard.Write(new ClipboardSnapshot("geheim?", null, false, false));
         ClipboardMonitor.CheckOnce();
         Assert.Empty(ClipService.Query(new ClipQuery()));
+    }
+
+    [Fact]
+    public void A_pause_lasts_its_time_until_restart_or_until_resumed()
+    {
+        RecordingService.Pause(PauseLength.Minutes30);
+        Assert.True(RecordingService.IsPaused);
+        Assert.True(SettingsService.Get().IsRecordingPaused);
+        var until = Assert.IsType<DateTimeOffset>(RecordingService.PausedUntil);
+        Assert.InRange(until - DateTimeOffset.UtcNow, TimeSpan.FromMinutes(29), TimeSpan.FromMinutes(30.1));
+        Assert.StartsWith("Pausiert bis ", RecordingService.Describe());
+
+        // A timed pause that has ended is over at the next start, even if the timer never fired.
+        SettingsStore.Update(settings => settings with { RecordingPausedUntil = DateTimeOffset.UtcNow.AddMinutes(-1) });
+        Assert.False(RecordingService.IsPaused);
+        RecordingService.Initialize();
+        Assert.False(SettingsService.Get().IsRecordingPaused);
+
+        // Until restart: in memory only, nothing stored.
+        RecordingService.Pause(PauseLength.UntilRestart);
+        Assert.True(RecordingService.IsPaused);
+        Assert.False(SettingsService.Get().IsRecordingPaused);
+        Assert.Equal("Pausiert bis zum Neustart", RecordingService.Describe());
+        Assert.Null(ClipService.Capture(new ClipboardSnapshot("nicht aufnehmen", null, false, false)));
+
+        RecordingService.Resume();
+        Assert.False(RecordingService.IsPaused);
+        Assert.NotNull(ClipService.Capture(new ClipboardSnapshot("wieder aufnehmen", null, false, false)));
+
+        RecordingService.Pause(PauseLength.UntilResumed);
+        Assert.Null(RecordingService.PausedUntil);
+        Assert.Equal("Pausiert", RecordingService.Describe());
+        Assert.Throws<BusinessException>(() => RecordingService.Pause((PauseLength)42));
+    }
+
+    [Fact]
+    public void Opening_hands_over_a_link_as_it_is_and_text_and_images_as_files_that_go_at_the_next_start()
+    {
+        var link = ClipService.CaptureText("https://example.com/plan?x=1")!;
+        Assert.Equal("https://example.com/plan?x=1", ClipService.PrepareToOpen(link.Id));
+
+        var text = ClipService.CaptureText("Zeile 1\nÄnderung ü")!;
+        var textFile = ClipService.PrepareToOpen(text.Id);
+        Assert.StartsWith(AppPaths.OpenDirectory, textFile);
+        Assert.EndsWith(".txt", textFile);
+        Assert.Equal("Zeile 1\nÄnderung ü", File.ReadAllText(textFile));
+
+        var png = ImageCodec.Normalize(TestImages.Png(30, 20, SKColors.Teal))!;
+        var image = ClipService.CaptureImage(png)!;
+        var imageFile = ClipService.PrepareToOpen(image.Id);
+        Assert.EndsWith(".png", imageFile);
+        Assert.Equal(png.Png, File.ReadAllBytes(imageFile));
+
+        // The next start removes what was handed over (it holds clipboard contents).
+        HistoryStore.Close();
+        ClipService.ResetForTests();
+        ClipService.Initialize();
+        Assert.False(File.Exists(textFile));
+        Assert.False(File.Exists(imageFile));
+        Assert.Throws<BusinessException>(() => ClipService.PrepareToOpen(999_999));
+    }
+
+    [Fact]
+    public void A_hang_is_reported_once_with_its_text()
+    {
+        Assert.Empty(ProblemReports.TakeUnseen());
+        var path = ProblemReports.WriteHang(TimeSpan.FromSeconds(12), withDump: false);
+        Assert.NotNull(path);
+        ProblemReports.Append(path!, "Danach reagierte ThixClip wieder.");
+
+        var report = Assert.Single(ProblemReports.TakeUnseen());
+        Assert.True(report.IsHang);
+        Assert.Contains("12 Sekunden", report.Text);
+        Assert.Contains(AppInfo.Version, report.Text);
+        Assert.Contains("Danach reagierte", report.Text);
+        Assert.Empty(ProblemReports.TakeUnseen()); // shown once
     }
 
     [Fact]

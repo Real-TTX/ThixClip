@@ -159,6 +159,20 @@ public sealed class ClipRowViewModel(ClipEntry entry) : INotifyPropertyChanged
 
     public string PinText => _entry.IsPinned ? "Lösen" : "Anheften";
 
+    public string PinTip => $"{PinText} ({Ui.CommandKey.Name}+P)";
+
+    public string FavoriteTip => $"{FavoriteText} ({Ui.CommandKey.Name}+D)";
+
+    /// <summary>What "Öffnen" does with this entry (ClipService.PrepareToOpen).</summary>
+    public string OpenName => _entry.Kind switch
+    {
+        ClipKind.Image => "Bild öffnen",
+        ClipKind.Link => "Link im Browser öffnen",
+        _ => "Text im Editor öffnen",
+    };
+
+    public string OpenTip => $"{OpenName} ({Ui.CommandKey.Name}+O oder {Ui.CommandKey.Name}+Klick)";
+
     public bool IsImagePending => _entry.IsImage && !_entry.HasImage;
 
     /// <summary>Small picture for the list (decoded once, in the background).</summary>

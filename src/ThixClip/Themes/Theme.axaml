@@ -258,6 +258,18 @@
     </Style>
   </ControlTheme>
 
+  <!-- A state that needs attention and the button that ends it (recording paused: "Fortsetzen" in the header). -->
+  <ControlTheme x:Key="WarningButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
+    <Setter Property="Background" Value="{DynamicResource WarningSoftBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource WarningBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Style Selector="^:pointerover /template/ Border#Frame">
+      <Setter Property="Background" Value="{DynamicResource WarningSoftBrush}" />
+      <Setter Property="Opacity" Value="0.85" />
+    </Style>
+  </ControlTheme>
+
   <!-- Borderless, for icons in rows and headers. -->
   <ControlTheme x:Key="GhostButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
     <Setter Property="Background" Value="Transparent" />

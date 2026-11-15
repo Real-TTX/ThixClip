@@ -53,8 +53,9 @@ public static class SettingsService
         return settings;
     }
 
-    /// <summary>Recording on/off (tray menu): no configuration lock, it is an everyday switch.</summary>
-    public static AppSettings SetRecordingPaused(bool paused) => Save(settings => settings with { IsRecordingPaused = paused });
+    /// <summary>The stored part of a pause (only <see cref="RecordingService"/>): no configuration lock, it is an everyday switch.</summary>
+    internal static AppSettings SetRecordingPaused(bool paused, DateTimeOffset? until) =>
+        Save(settings => settings with { IsRecordingPaused = paused, RecordingPausedUntil = paused ? until : null });
 
     /// <summary>Things the app remembers by itself (window size, folded menu, welcome shown): no configuration lock.</summary>
     public static AppSettings Remember(Func<AppSettings, AppSettings> change)

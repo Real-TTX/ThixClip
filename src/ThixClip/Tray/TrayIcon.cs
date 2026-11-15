@@ -19,14 +19,19 @@ internal sealed class TrayIcon : IDisposable
     private readonly AvaloniaTrayIcon _trayIcon;
     private readonly NativeMenu _menu = new();
     private readonly App _app;
+    private readonly WindowIcon _normalIcon;
+    private readonly WindowIcon _pausedIcon;
     private bool _updateAvailable;
 
     public TrayIcon(App app)
     {
         _app = app;
+        var asset = new Uri(OperatingSystem.IsMacOS() ? "avares://ThixClip/Assets/tray-macos.png" : "avares://ThixClip/Assets/tray-windows.ico");
+        _normalIcon = new WindowIcon(AssetLoader.Open(asset));
+        _pausedIcon = TrayIconImages.WithPauseBadge(asset, isTemplate: OperatingSystem.IsMacOS()) ?? _normalIcon;
         _trayIcon = new AvaloniaTrayIcon
         {
-            Icon = new WindowIcon(AssetLoader.Open(new Uri(OperatingSystem.IsMacOS() ? "avares://ThixClip/Assets/tray-macos.png" : "avares://ThixClip/Assets/tray-windows.ico"))),
+            Icon = RecordingService.IsPaused ? _pausedIcon : _normalIcon,
             ToolTipText = ToolTip(),
             Menu = _menu,
             IsVisible = true,
@@ -40,6 +45,7 @@ internal sealed class TrayIcon : IDisposable
         _menu.Opening += (_, _) => BuildMenu();
         AvaloniaTrayIcon.SetIcons(app, [_trayIcon]);
         SettingsService.Changed += OnSettingsChanged;
+        RecordingService.Changed += OnRecordingChanged;
         BuildMenu();
     }
 
@@ -55,6 +61,7 @@ internal sealed class TrayIcon : IDisposable
     public void Dispose()
     {
         SettingsService.Changed -= OnSettingsChanged;
+        RecordingService.Changed -= OnRecordingChanged;
         _trayIcon.IsVisible = false;
         _trayIcon.Dispose();
     }
@@ -65,11 +72,18 @@ internal sealed class TrayIcon : IDisposable
         BuildMenu();
     });
 
+    /// <summary>A pause shows in the icon itself (a pause badge), in its tool tip and in the menu.</summary>
+    private void OnRecordingChanged(object? sender, EventArgs e) => Ui.Post(() =>
+    {
+        _trayIcon.Icon = RecordingService.IsPaused ? _pausedIcon : _normalIcon;
+        _trayIcon.ToolTipText = ToolTip();
+        BuildMenu();
+    });
+
     private static string ToolTip()
     {
-        var settings = SettingsService.Get();
-        var hotkey = HotkeyService.Display(settings.Hotkey);
-        return settings.IsRecordingPaused ? $"ThixClip – Aufzeichnung pausiert ({hotkey})" : $"ThixClip – {hotkey}";
+        var hotkey = HotkeyService.Display(SettingsService.Get().Hotkey);
+        return RecordingService.IsPaused ? $"ThixClip – Aufzeichnung {RecordingService.Describe().ToLowerInvariant()} ({hotkey})" : $"ThixClip – {hotkey}";
     }
 
     private void BuildMenu()
@@ -94,12 +108,9 @@ internal sealed class TrayIcon : IDisposable
         }
 
         _menu.Items.Add(new NativeMenuItemSeparator());
-        _menu.Items.Add(new NativeMenuItem("Aufzeichnung pausieren")
-        {
-            ToggleType = NativeMenuItemToggleType.CheckBox,
-            IsChecked = settings.IsRecordingPaused,
-            Command = new RelayCommand(() => SettingsService.SetRecordingPaused(!SettingsService.Get().IsRecordingPaused)),
-        });
+        _menu.Items.Add(RecordingService.IsPaused
+            ? Item($"Aufzeichnung fortsetzen ({RecordingService.Describe()})", RecordingService.Resume)
+            : Item("Aufzeichnung pausieren …", () => _ = _app.TogglePauseAsync()));
         if (settings.Cloud.IsConnected)
         {
             _menu.Items.Add(Item("Jetzt synchronisieren", SyncService.Kick));

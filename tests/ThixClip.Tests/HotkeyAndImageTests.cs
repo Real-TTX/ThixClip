@@ -35,13 +35,13 @@ public sealed class HotkeyTests
     }
 
     [Fact]
-    public void The_default_is_ctrl_win_v_on_windows_and_ctrl_option_v_on_macos()
+    public void The_default_is_ctrl_shift_v_on_windows_and_ctrl_option_v_on_macos()
     {
-        var expected = OperatingSystem.IsMacOS() ? "Ctrl+Alt+V" : "Ctrl+Win+V";
+        var expected = OperatingSystem.IsMacOS() ? "Ctrl+Alt+V" : "Ctrl+Shift+V";
         Assert.Equal(expected, HotkeyService.DefaultHotkey);
         if (OperatingSystem.IsWindows())
         {
-            Assert.Equal("Strg + Win + V", HotkeyService.Display(HotkeyService.DefaultHotkey));
+            Assert.Equal("Strg + Umschalt + V", HotkeyService.Display(HotkeyService.DefaultHotkey));
         }
         else if (OperatingSystem.IsMacOS())
         {

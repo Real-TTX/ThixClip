@@ -3,6 +3,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using ThixClip.Controls;
 using ThixClip.Core.Business;
 using ThixClip.Core.Models;
@@ -62,7 +63,7 @@ public partial class HistoryPage : UserControl
             else if (e.Key == Key.Delete && Selected is not null)
             {
                 e.Handled = true;
-                DeleteSelected();
+                DeleteSelected(keepListFocus: true);
             }
         };
 
@@ -75,6 +76,22 @@ public partial class HistoryPage : UserControl
                 row.Update(row.Entry with { });
             }
         });
+
+        // Ctrl/Cmd+click on a row or on the preview opens the entry (editor, image viewer, browser).
+        ClipList.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
+        PreviewFrame.PointerPressed += (_, e) =>
+        {
+            if (e.KeyModifiers.HasFlag(Ui.CommandKey.Modifier) && e.GetCurrentPoint(PreviewFrame).Properties.IsLeftButtonPressed)
+            {
+                e.Handled = true;
+                OpenSelected();
+            }
+        };
+
+        var command = Ui.CommandKey.Name;
+        ToolTip.SetTip(PasteButton, "In die vorherige App einfügen (Enter)");
+        ToolTip.SetTip(CopyButton, $"In die Zwischenablage kopieren ({command}+C)");
+        ToolTip.SetTip(DeleteButton, OperatingSystem.IsMacOS() ? "Löschen (⌘⌫)" : "Löschen (Strg+Entf)");
 
         BuildKeyHints();
         ToolTip.SetTip(ClearButton, OperatingSystem.IsMacOS()
@@ -158,7 +175,39 @@ public partial class HistoryPage : UserControl
         });
     }
 
-    public void DeleteSelected()
+    /// <summary>Opens the chosen entry with the program of the system (Ctrl/Cmd+O, Ctrl/Cmd+click, the button).</summary>
+    public void OpenSelected()
+    {
+        if (Selected is not { } row)
+        {
+            return;
+        }
+
+        Run(() =>
+        {
+            Ui.OpenExternal(ClipService.PrepareToOpen(row.Id));
+            ShowMessage(row.IsImage ? "Bild geöffnet." : row.IsLink ? "Link geöffnet." : "Text geöffnet.");
+        });
+    }
+
+    private void OnListPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.KeyModifiers.HasFlag(Ui.CommandKey.Modifier) || !e.GetCurrentPoint(ClipList).Properties.IsLeftButtonPressed ||
+            (e.Source as Control)?.FindAncestorOfType<ListBoxItem>(includeSelf: true) is not { DataContext: ClipRowViewModel row })
+        {
+            return;
+        }
+
+        e.Handled = true;
+        ClipList.SelectedItem = row;
+        OpenSelected();
+    }
+
+    /// <summary>
+    /// Deletes the chosen entry and chooses the one that took its place, so the next Delete takes that one. The focus goes
+    /// to the new row when it was in the list (the old row and its container are gone).
+    /// </summary>
+    public void DeleteSelected(bool keepListFocus = false)
     {
         if (Selected is not { } row)
         {
@@ -170,6 +219,10 @@ public partial class HistoryPage : UserControl
         Run(() => ClipService.Delete(row.Id));
         Refresh();
         SelectRow(Math.Min(index, _items.OfType<ClipRowViewModel>().Count() - 1));
+        if (keepListFocus && Selected is { } next)
+        {
+            Dispatcher.UIThread.Post(() => ClipList.ContainerFromItem(next)?.Focus(NavigationMethod.Directional), DispatcherPriority.Loaded);
+        }
     }
 
     private void SetQuery(ClipQuery query)
@@ -448,6 +501,8 @@ public partial class HistoryPage : UserControl
     private void OnFavoriteClick(object? sender, RoutedEventArgs e) => ToggleFavoriteOfSelected();
 
     private void OnDeleteClick(object? sender, RoutedEventArgs e) => DeleteSelected();
+
+    private void OnOpenClick(object? sender, RoutedEventArgs e) => OpenSelected();
 
     private void OnCopyOcrClick(object? sender, RoutedEventArgs e) => Run(() =>
     {

@@ -85,6 +85,7 @@ public partial class SetupWindow : ThemedWindow
         {
             AutostartToggle.IsChecked = true;
             DesktopToggle.IsChecked = InstallService.HasDesktopShortcut;
+            AutoUpdateToggle.IsChecked = true;
             PrimaryLabel.Text = "Installieren";
         }
 
@@ -130,7 +131,7 @@ public partial class SetupWindow : ThemedWindow
         PrimaryButton.IsEnabled = CancelButton.IsEnabled = false;
 
         var source = App.ExecutablePath;
-        var options = _isUpdate ? null : new InstallOptions(AutostartToggle.IsChecked == true, DesktopToggle.IsChecked == true);
+        var options = _isUpdate ? null : new InstallOptions(AutostartToggle.IsChecked == true, DesktopToggle.IsChecked == true, AutoUpdateToggle.IsChecked == true);
         var deleteData = DeleteDataToggle.IsChecked == true;
         void Report(string step) => Ui.Post(() => _steps.Add(step));
 

@@ -32,6 +32,9 @@ internal static class Ui
     /// <summary>Ctrl on Windows, Cmd on macOS: the modifier of the app's own shortcuts.</summary>
     public static KeyModifiersName CommandKey => OperatingSystem.IsMacOS() ? new("⌘", Avalonia.Input.KeyModifiers.Meta) : new("Strg", Avalonia.Input.KeyModifiers.Control);
 
+    /// <summary>Pause / resume recording: Ctrl+Shift+P, on macOS ⌘⇧P.</summary>
+    public static string PauseShortcut => OperatingSystem.IsMacOS() ? "⌘⇧P" : "Strg+Umschalt+P";
+
     /// <summary>Opens a web address or a folder with the program the system uses for it (browser, Explorer, Finder).</summary>
     public static void OpenExternal(string pathOrUrl)
     {

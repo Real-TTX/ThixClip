@@ -6,7 +6,7 @@ Guidance for working in this repository. Keep it in sync with the code: update i
 
 A clipboard history for **Windows and macOS** (desktop app, tray / menu bar) plus **ThixClip.Cloud** (server, Docker, port
 **4950**) that keeps the history the same on every device and in the browser (PWA). The desktop app records text, links
-and images (with OCR), opens with a global shortcut (default `Ctrl+Win+V` on Windows, `Ctrl+Option+V` on macOS, it takes
+and images (with OCR), opens with a global shortcut (default `Ctrl+Shift+V` on Windows, `Ctrl+Option+V` on macOS, it takes
 precedence over other apps) and pastes the chosen entry into the app that was in front. **It must open instantly and be
 fully usable with the keyboard** (owner's requirement): the main window is built once and only shown/hidden, search
 filters in memory on every key. UI language German; code, comments and identifiers English. The mockup of the main
@@ -33,6 +33,10 @@ SkiaSharp. Cloud: ASP.NET Core **Razor Pages**, EF Core + **PostgreSQL**, **MatU
 - Icons: `cd tools && npm install && node render-icons.js` renders `branding/*.svg` (installed Edge, headless) into
   `branding/png`, `src/ThixClip/Assets`, `src/ThixClip.Cloud/wwwroot/img`. `node tools/avalonia-icons.js` turns MatDesign's
   icon sprite into `src/ThixClip/Themes/Icons.axaml` (never edit that file by hand).
+- The Windows publish (win-x64) is a **trimmed** single file (`TrimMode=partial`: only trimmable libraries shrink, our own
+  assemblies stay whole; about 38 MB). No `dynamic`, no built-in COM: COM goes through `[GeneratedComInterface]`
+  (`Platform/Windows/ShellLink`). `ThixClip.exe --self-test <report>` checks the published program (JSON, SQLite, Skia,
+  token store, OCR, COM, every window) in a temporary data folder; CI runs it after every Windows publish.
 - `scripts/package-macos.sh` builds `ThixClip.app` (Info.plist with `LSUIElement`, icns, ad-hoc signature), the update zip and the dmg.
 
 ## Map
@@ -43,33 +47,43 @@ src/ThixClip.Shared   the sync contract (SyncContract.cs): routes, DTOs, limits,
 src/ThixClip.Core     (no UI) models, business layer (static classes), infrastructure, native code
   Models/             ClipEntry (immutable record; OcrState, SyncState), AppSettings (+ CloudSettings), ClipQuery, Hotkey, BusinessException
   Business/           ClipService (the history in memory + HistoryStore: capture, dedupe by content hash, query/search incl. OCR,
-                      favourite/pin/delete, ClearHistory(ClearRange) by last copy time, retention, the sync hooks), ClipboardMonitor (polls the change counter, 250 ms),
+                      favourite/pin/delete, ClearHistory(ClearRange) by last copy time, PrepareToOpen (link / .txt / .png in AppPaths.OpenDirectory, emptied at start), retention, the sync hooks), ClipboardMonitor (polls the change counter, 250 ms),
                       OcrService (queue), HotkeyService (parse/format/display/validate, registration), SettingsService,
                       SyncService (connect/disconnect, the loop: push -> upload images -> pull -> download images -> long poll),
                       AccessPolicy (LockConfiguration, DisableCloud, DisableUpdates), AutostartService (HKCU Run / LaunchAgent),
+                      RecordingService (pause: 15/30 min, 1 h stored with its end, until restart in memory, until resumed),
                       InstallService (Windows self-installing exe), UpdateService + MacAppBundle (OTA from GitHub releases)
   Infrastructure/     HistoryStore (SQLite history.db: ClipEntry, ClipImage), SettingsStore (settings.json), ImageCodec (SkiaSharp:
                       normalise to PNG, DIB in/out, thumbnails), CloudClient (HTTP of the contract), TokenStore (DPAPI / Keychain),
-                      AppPaths, AppInfo, Log
+                      AppPaths, AppInfo, Log, ProblemReports (unhandled exceptions -> logs/crash-*.txt + message box on Windows,
+                      hangs -> logs/hang-*.txt + .dmp on Windows; shown once at the next start)
   Platform/           NativeClipboard (+ Windows/WindowsClipboard, Mac/MacClipboard), PasteTarget (+ WindowsPaste, MacPaste:
                       remember the app in front, bring it back, Ctrl+V / Cmd+V), TextRecognition (WindowsOcr / MacOcr = Vision),
                       WindowActivation (foreground on Windows), Windows/WindowsKeyboardHook (low-level hook: the global shortcut,
-                      swallows it, masks the Start menu; message-only window = clipboard owner), Mac/MacHotkey (Carbon),
+                      swallows it, masks the Start menu; message-only window = clipboard owner), Windows/ShellLink (.lnk, generated COM),
+                      Mac/MacHotkey (Carbon),
                       Mac/ObjC (objc_msgSend helpers)
 src/ThixClip          (Avalonia app)
-  App.axaml(.cs)      start-up: Windows setup mode, single instance (mutex + pipe), services, tray, hotkey, prewarm, timers
-  MainWindow          header (search, shortcut chip, own caption buttons on Windows / traffic lights on macOS), sidebar (sections,
+  Program / App       start-up: ProblemReports first, self test, Windows setup mode, single instance (mutex + pipe), services, tray,
+                      hotkey, prewarm, timers, TogglePauseAsync (the pause dialog for header, tray, settings, Ctrl/Cmd+Shift+P)
+  UiWatchdog          knocks on the UI thread every second; 8 s without an answer = hang report (ProblemReports.WriteHang)
+  SelfTest            --self-test of the published program (CI)
+  MainWindow          header (search, pause button: framed "Pausieren" / amber "Fortsetzen · pausiert bis …", shortcut chip, own caption buttons on Windows / traffic lights on macOS), sidebar (sections,
                       retention card, cloud state, version = about; folds to a 68 px icon rail with Ctrl/Cmd+B or the button at its
                       foot, remembered in AppSettings.IsSidebarCollapsed), page host; ALL keyboard handling (OnPreviewKeyDown)
-  Pages/              HistoryPage (list grouped by day + detail pane, adaptive below 820 px), ClipRowViewModel, SettingsPage
+  Pages/              HistoryPage (title and filters in one line; list grouped by day + detail pane with ONE row of icon buttons
+                      Einfügen, Kopieren, Öffnen, Anheften, Favorit … Löschen; Ctrl/Cmd+click or +O opens; Delete takes the chosen
+                      entry and keeps the focus; adaptive below 820 px), ClipRowViewModel, SettingsPage
                       (tabs Allgemein | Aufzeichnung | Cloud | Updates | Erweitert), AboutPage
   Controls/           ONE code base per control: IconView (line icons), IconLabel, ActionBar (left, positive -> negative, Separated
                       gap before delete), SettingRow, FormField (shows BusinessException.Field), InfoBar, KeyCaps, HotkeyRecorder
   Themes/             Theme.axaml (light + dark theme dictionaries, ControlThemes), Icons.axaml (generated)
-  Tray/               TrayIcon (menu: open, last five entries, pause, sync, settings, update, quit), NotificationToast
-  Setup/              SetupWindow (Windows install / update / uninstall assistant)
+  Tray/               TrayIcon (menu: open, last five entries, pause …/resume, sync, settings, update, quit; paused = icon with a pause
+                      badge drawn by TrayIconImages), NotificationToast
+  Setup/              SetupWindow (Windows install / update / uninstall assistant; autostart, desktop shortcut, auto update on)
   Dialogs/            ConfirmDialog, ClearHistoryDialog ("Verlauf löschen" as in a browser: range list with counts, Enter deletes;
-                      Ctrl/Cmd+Shift+Delete or the button below the list)
+                      Ctrl/Cmd+Shift+Delete or the button below the list), PauseDialog (how long), ProblemReportDialog (crash / hang
+                      of the last run: the report to read and copy, the log folder)
 src/ThixClip.Cloud    the server – map, pages, API, data model: docs/CLOUD.md
 tests/ThixClip.Tests  desktop tests (see above); tests/ThixClip.Cloud.Tests, tests/e2e: the cloud
 ```

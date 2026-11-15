@@ -193,6 +193,122 @@ public sealed class UiTests
     }
 
     [AvaloniaFact]
+    public void Delete_takes_the_chosen_entry_again_and_again()
+    {
+        using var data = new TestData();
+        SampleHistory.Create();
+        var window = Open();
+        var history = (HistoryPage)window.PageHost.Content!;
+
+        // From the (empty) search field: Delete takes the chosen entry, the next one moves up and goes with the next Delete.
+        for (var round = 0; round < 2; round++)
+        {
+            var chosen = history.Selected!.Id;
+            window.KeyPressQwerty(PhysicalKey.Delete, RawInputModifiers.None);
+            Settle(window);
+            Assert.Null(ClipService.Get(chosen));
+            Assert.NotNull(history.Selected);
+        }
+
+        // From the list (the row had the focus and is gone after the deletion): the same, again and again.
+        history.ClipList.ContainerFromItem(history.Selected!)!.Focus();
+        Settle(window);
+        for (var round = 0; round < 3; round++)
+        {
+            var chosen = history.Selected!.Id;
+            window.KeyPressQwerty(PhysicalKey.Delete, RawInputModifiers.None);
+            Settle(window);
+            Assert.Null(ClipService.Get(chosen));
+        }
+
+        Assert.Equal(2, ClipService.Count);
+
+        // A search text keeps Delete for the text.
+        window.SearchBox.Focus();
+        window.SearchBox.Text = "x";
+        window.SearchBox.CaretIndex = 0;
+        window.KeyPressQwerty(PhysicalKey.Delete, RawInputModifiers.None);
+        Settle(window);
+        Assert.Equal(2, ClipService.Count);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void The_detail_actions_fit_in_one_line_as_icons()
+    {
+        using var data = new TestData();
+        SampleHistory.Create();
+        foreach (var width in new[] { 1360.0, 900.0 })
+        {
+            var window = Open(width: width);
+            var history = (HistoryPage)window.PageHost.Content!;
+            Settle(window);
+            Assert.True(history.DetailActions.Bounds.Height < 50, $"{width}: {history.DetailActions.Bounds.Height}");
+            Assert.True(history.DetailActions.Bounds.Width <= history.DetailPane.Bounds.Width - 30);
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void The_pause_asks_how_long_and_shows_in_the_header_until_resumed()
+    {
+        using var data = new TestData();
+        SampleHistory.Create();
+        var window = Open();
+        Assert.Equal("Pausieren", window.PauseLabel.Text);
+
+        // Ctrl/Cmd+Shift+P asks how long; 30 minutes are offered, ↓ takes 1 hour, Enter pauses.
+        window.KeyPressQwerty(PhysicalKey.P, CommandModifier | RawInputModifiers.Shift);
+        Settle(window);
+        var dialog = Assert.IsType<Dialogs.PauseDialog>(Assert.Single(window.OwnedWindows));
+        Settle(dialog);
+        Save(dialog, "pause");
+        dialog.KeyPressQwerty(PhysicalKey.ArrowDown, RawInputModifiers.None);
+        Settle(dialog);
+        dialog.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        Settle(window);
+        Assert.Empty(window.OwnedWindows);
+        Assert.True(RecordingService.IsPaused);
+        Assert.InRange(RecordingService.PausedUntil!.Value - DateTimeOffset.UtcNow, TimeSpan.FromMinutes(59), TimeSpan.FromMinutes(60.1));
+        Assert.StartsWith("Fortsetzen · pausiert bis ", window.PauseLabel.Text);
+        Save(window, "paused");
+
+        // The tray icon gets its pause badge (drawn from the normal icon).
+        foreach (var (asset, template) in new[] { ("tray-windows.ico", false), ("tray-macos.png", true) })
+        {
+            using var source = Avalonia.Platform.AssetLoader.Open(new Uri($"avares://ThixClip/Assets/{asset}"));
+            var png = Tray.TrayIconImages.PausedPng(source, template);
+            Assert.NotNull(png);
+            Assert.NotNull(Tray.TrayIconImages.WithPauseBadge(new Uri($"avares://ThixClip/Assets/{asset}"), template));
+            if (ShotFolder is not null)
+            {
+                File.WriteAllBytes(Path.Combine(ShotFolder, $"tray-paused-{(template ? "macos" : "windows")}.png"), png!);
+            }
+        }
+
+        // The same keys (or the button) resume at once.
+        window.KeyPressQwerty(PhysicalKey.P, CommandModifier | RawInputModifiers.Shift);
+        Settle(window);
+        Assert.False(RecordingService.IsPaused);
+        Assert.Equal("Pausieren", window.PauseLabel.Text);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void A_hang_of_the_last_run_is_shown_at_start()
+    {
+        using var data = new TestData();
+        ProblemReports.WriteHang(TimeSpan.FromSeconds(14), withDump: false);
+        var dialog = Dialogs.ProblemReportDialog.ShowUnseen();
+        Assert.NotNull(dialog);
+        Settle(dialog!);
+        Assert.Equal("ThixClip hat nicht reagiert", dialog!.Title);
+        Save(dialog, "problem-report");
+        dialog.Close();
+        Assert.Null(Dialogs.ProblemReportDialog.ShowUnseen());
+    }
+
+    [AvaloniaFact]
     public void A_narrow_window_keeps_the_list()
     {
         using var data = new TestData();
