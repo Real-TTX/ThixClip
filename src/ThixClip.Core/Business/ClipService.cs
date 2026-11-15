@@ -326,38 +326,37 @@ public static class ClipService
     }
 
     /// <summary>
-    /// What "Öffnen" hands to the system: a link as it is (browser), a text as a .txt file (editor), an image as a .png
-    /// file (image viewer). The files live in <see cref="AppPaths.OpenDirectory"/> and go at the next start.
+    /// The web address "Im Browser öffnen" of the viewer hands to the browser: only a link entry, only http and https;
+    /// null for everything else.
     /// </summary>
-    public static string PrepareToOpen(long id)
+    public static string? BrowserLink(long id)
     {
         var entry = Get(id) ?? throw new BusinessException("Den Eintrag gibt es nicht mehr.");
-        if (entry.Kind == ClipKind.Link && Uri.TryCreate(entry.Text?.Trim(), UriKind.Absolute, out var uri) &&
-            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+        return entry.Kind == ClipKind.Link && Uri.TryCreate(entry.Text?.Trim(), UriKind.Absolute, out var uri) &&
+               (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+            ? uri.AbsoluteUri
+            : null;
+    }
+
+    /// <summary>The whole image of an entry for the viewer.</summary>
+    public static byte[] ReadImageToView(long id)
+    {
+        var entry = Get(id) ?? throw new BusinessException("Den Eintrag gibt es nicht mehr.");
+        if (!entry.IsImage)
         {
-            return uri.AbsoluteUri;
+            throw new BusinessException("Der Eintrag ist kein Bild.");
         }
 
-        Directory.CreateDirectory(AppPaths.OpenDirectory);
-        var stamp = entry.CopiedDate.ToLocalTime().ToString("yyyy-MM-dd HH-mm-ss");
-        if (entry.IsImage)
-        {
-            var png = (entry.HasImage ? HistoryStore.ReadPng(id) : null) ?? throw new BusinessException("Das Bild wird noch aus der Cloud geladen.");
-            var imagePath = Path.Combine(AppPaths.OpenDirectory, $"Bild {stamp} ({id}).png");
-            File.WriteAllBytes(imagePath, png);
-            return imagePath;
-        }
-
-        var textPath = Path.Combine(AppPaths.OpenDirectory, $"Text {stamp} ({id}).txt");
-        File.WriteAllText(textPath, entry.Text ?? "", System.Text.Encoding.UTF8);
-        return textPath;
+        return (entry.HasImage ? HistoryStore.ReadPng(id) : null) ?? throw new BusinessException("Das Bild wird noch aus der Cloud geladen.");
     }
 
     public static byte[]? ReadThumbnail(long id) => HistoryStore.ReadThumbnail(id);
 
     public static byte[]? ReadImage(long id) => HistoryStore.ReadPng(id);
 
-    /// <summary>The copies handed to other programs last time hold clipboard contents: they do not stay.</summary>
+    /// <summary>
+    /// Versions up to 0.1.6 handed entries to other programs as files there; they hold clipboard contents and do not stay.
+    /// </summary>
     private static void RemoveOpenedFiles()
     {
         if (!Directory.Exists(AppPaths.OpenDirectory))

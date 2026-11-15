@@ -99,30 +99,27 @@ public sealed class ClipServiceTests : IDisposable
     }
 
     [Fact]
-    public void Opening_hands_over_a_link_as_it_is_and_text_and_images_as_files_that_go_at_the_next_start()
+    public void The_viewer_gets_the_whole_image_and_only_web_links_go_to_the_browser()
     {
         var link = ClipService.CaptureText("https://example.com/plan?x=1")!;
-        Assert.Equal("https://example.com/plan?x=1", ClipService.PrepareToOpen(link.Id));
-
+        Assert.Equal("https://example.com/plan?x=1", ClipService.BrowserLink(link.Id));
         var text = ClipService.CaptureText("Zeile 1\nÄnderung ü")!;
-        var textFile = ClipService.PrepareToOpen(text.Id);
-        Assert.StartsWith(AppPaths.OpenDirectory, textFile);
-        Assert.EndsWith(".txt", textFile);
-        Assert.Equal("Zeile 1\nÄnderung ü", File.ReadAllText(textFile));
+        Assert.Null(ClipService.BrowserLink(text.Id));
 
         var png = ImageCodec.Normalize(TestImages.Png(30, 20, SKColors.Teal))!;
         var image = ClipService.CaptureImage(png)!;
-        var imageFile = ClipService.PrepareToOpen(image.Id);
-        Assert.EndsWith(".png", imageFile);
-        Assert.Equal(png.Png, File.ReadAllBytes(imageFile));
+        Assert.Equal(png.Png, ClipService.ReadImageToView(image.Id));
+        Assert.Throws<BusinessException>(() => ClipService.ReadImageToView(text.Id));
+        Assert.Throws<BusinessException>(() => ClipService.BrowserLink(999_999));
 
-        // The next start removes what was handed over (it holds clipboard contents).
+        // Files earlier versions handed to other programs go at the next start (they hold clipboard contents).
+        Directory.CreateDirectory(AppPaths.OpenDirectory);
+        var leftover = Path.Combine(AppPaths.OpenDirectory, "Text 2026-11-15 10-00-00 (1).txt");
+        File.WriteAllText(leftover, "geheim");
         HistoryStore.Close();
         ClipService.ResetForTests();
         ClipService.Initialize();
-        Assert.False(File.Exists(textFile));
-        Assert.False(File.Exists(imageFile));
-        Assert.Throws<BusinessException>(() => ClipService.PrepareToOpen(999_999));
+        Assert.False(File.Exists(leftover));
     }
 
     [Fact]

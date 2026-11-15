@@ -77,11 +77,11 @@ public partial class HistoryPage : UserControl
             }
         });
 
-        // Ctrl/Cmd+click on a row or on the preview opens the entry (editor, image viewer, browser).
+        // Ctrl/Cmd+click on a row or on the preview, a click on an image opens the entry in the viewer.
         ClipList.AddHandler(PointerPressedEvent, OnListPointerPressed, RoutingStrategies.Tunnel);
         PreviewFrame.PointerPressed += (_, e) =>
         {
-            if (e.KeyModifiers.HasFlag(Ui.CommandKey.Modifier) && e.GetCurrentPoint(PreviewFrame).Properties.IsLeftButtonPressed)
+            if ((e.KeyModifiers.HasFlag(Ui.CommandKey.Modifier) || Selected is { IsImage: true }) && e.GetCurrentPoint(PreviewFrame).Properties.IsLeftButtonPressed)
             {
                 e.Handled = true;
                 OpenSelected();
@@ -179,19 +179,26 @@ public partial class HistoryPage : UserControl
         });
     }
 
-    /// <summary>Opens the chosen entry with the program of the system (Ctrl/Cmd+O, Ctrl/Cmd+click, the button).</summary>
-    public void OpenSelected()
+    /// <summary>
+    /// Opens the chosen entry in ThixClip's own viewer (Ctrl/Cmd+O, Ctrl/Cmd+click, a click on the image, the button);
+    /// pasting and copying from there work as from the list. Returns the viewer (null: nothing chosen).
+    /// </summary>
+    public ViewerDialog? OpenSelected()
     {
-        if (Selected is not { } row)
+        if (Selected is not { } row || TopLevel.GetTopLevel(this) is not Window owner)
         {
-            return;
+            return null;
         }
 
-        Run(() =>
+        try
         {
-            Ui.OpenExternal(ClipService.PrepareToOpen(row.Id));
-            ShowMessage(row.IsImage ? "Bild geöffnet." : row.IsLink ? "Link geöffnet." : "Text geöffnet.");
-        });
+            return ViewerDialog.Show(owner, row, () => PasteRequested?.Invoke(this, row), CopySelected);
+        }
+        catch (BusinessException exception)
+        {
+            ShowMessage(exception.Message, isError: true);
+            return null;
+        }
     }
 
     private void OnListPointerPressed(object? sender, PointerPressedEventArgs e)

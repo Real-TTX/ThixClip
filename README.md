@@ -18,8 +18,9 @@
 - **Aufzeichnung pausieren**: der Knopf oben im Fenster (oder `Strg/⌘ + Umschalt + P`, das Tray-Menü) fragt nach der Dauer –
   15 / 30 Minuten, 1 Stunde, bis zum Neustart oder bis du fortsetzt. Während der Pause trägt das Tray-Symbol ein
   Pause-Zeichen und oben steht „Fortsetzen“.
-- **Öffnen**: ein Bild im Bildbetrachter, einen Text im Editor, einen Link im Browser – mit `Strg/⌘ + O`, `Strg/⌘`+Klick
-  oder dem Knopf in der Vorschau.
+- **Ansehen**: ein Eintrag öffnet sich in ThixClip selbst – ein Bild groß (Leertaste: Originalgröße), ein Text oder Link
+  ganz und markierbar; von dort einfügen, kopieren oder einen Link im Browser öffnen. Mit `Strg/⌘ + O`, `Strg/⌘`+Klick,
+  einem Klick auf das Bild oder dem Knopf in der Vorschau.
 - **Abstürze und Hänger werden sichtbar**: ein unerwarteter Fehler erscheint sofort mit seiner Meldung, ein Hänger wird mit
   Bericht (unter Windows mit Speicherabbild) im Protokollordner festgehalten; beim nächsten Start zeigt ThixClip den Bericht.
 - **Vertrauliches bleibt draußen**: was Passwort-Manager als vertraulich markieren, wird nie aufgezeichnet.
@@ -49,7 +50,7 @@
 | `Strg/⌘ + D` | Favorit |
 | `Strg/⌘ + P` | anheften |
 | `Entf` (Suche leer), `Strg + Entf` / `⌘ + ⌫` | löschen – der nächste Eintrag rückt nach und ist gewählt |
-| `Strg/⌘ + O`, `Strg/⌘` + Klick | öffnen (Bild, Text, Link) |
+| `Strg/⌘ + O`, `Strg/⌘` + Klick | ansehen (Bild, Text, Link) – dort `Enter` einfügen, `Strg/⌘ + C` kopieren, `Leertaste` Originalgröße, `Esc` schließen |
 | `Strg + Umschalt + Entf` / `⌘ + ⇧ + ⌫` | **Verlauf löschen**: Zeitraum mit `↑` `↓` wählen, `Enter` löscht, `Esc` bricht ab |
 | `Strg/⌘ + F` | Suche |
 | `Strg/⌘ + 1 / 2 / 3` | Verlauf / Bilder / Favoriten |
@@ -65,9 +66,9 @@ Liegt ein Update bereit, steht es an der Versionsnummer; „Über ThixClip“ f�
 |---|---|
 | ![Menü eingeklappt](docs/images/desktop-menu-folded.png) | ![Verlauf löschen](docs/images/desktop-clear-history.png) |
 
-| Aufzeichnung pausiert | Pause mit Dauer |
-|---|---|
-| ![Pausiert](docs/images/desktop-paused.png) | ![Pause](docs/images/desktop-pause.png) |
+| Aufzeichnung pausiert | Pause mit Dauer | Bild ansehen |
+|---|---|---|
+| ![Pausiert](docs/images/desktop-paused.png) | ![Pause](docs/images/desktop-pause.png) | ![Ansehen](docs/images/desktop-viewer.png) |
 
 ## Installation
 

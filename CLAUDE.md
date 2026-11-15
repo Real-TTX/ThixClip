@@ -47,7 +47,7 @@ src/ThixClip.Shared   the sync contract (SyncContract.cs): routes, DTOs, limits,
 src/ThixClip.Core     (no UI) models, business layer (static classes), infrastructure, native code
   Models/             ClipEntry (immutable record; OcrState, SyncState), AppSettings (+ CloudSettings), ClipQuery, Hotkey, BusinessException
   Business/           ClipService (the history in memory + HistoryStore: capture, dedupe by content hash, query/search incl. OCR,
-                      favourite/pin/delete, ClearHistory(ClearRange) by last copy time, PrepareToOpen (link / .txt / .png in AppPaths.OpenDirectory, emptied at start), retention, the sync hooks), ClipboardMonitor (polls the change counter, 250 ms),
+                      favourite/pin/delete, ClearHistory(ClearRange) by last copy time, BrowserLink / ReadImageToView for the viewer (AppPaths.OpenDirectory: files of old versions, emptied at start), retention, the sync hooks), ClipboardMonitor (polls the change counter, 250 ms),
                       OcrService (queue), HotkeyService (parse/format/display/validate, registration), SettingsService,
                       SyncService (connect/disconnect, the loop: push -> upload images -> pull -> download images -> long poll),
                       AccessPolicy (LockConfiguration, DisableCloud, DisableUpdates), AutostartService (HKCU Run / LaunchAgent),
@@ -72,7 +72,7 @@ src/ThixClip          (Avalonia app)
                       retention card, cloud state, version = about; folds to a 68 px icon rail with Ctrl/Cmd+B or the button at its
                       foot, remembered in AppSettings.IsSidebarCollapsed), page host; ALL keyboard handling (OnPreviewKeyDown)
   Pages/              HistoryPage (title and filters in one line; list grouped by day + detail pane with ONE row of icon buttons
-                      Einfügen, Kopieren, Öffnen, Anheften, Favorit … Löschen; Ctrl/Cmd+click or +O opens; Delete takes the chosen
+                      Einfügen, Kopieren, Öffnen, Anheften, Favorit … Löschen; Ctrl/Cmd+click, +O or a click on the image opens the viewer; Delete takes the chosen
                       entry and keeps the focus; count / notes bottom right; the chosen row is scrolled into view only after
                       layout (BringIntoView), else the virtualizing panel leaves a growing gap; adaptive below 820 px), ClipRowViewModel, SettingsPage
                       (tabs Allgemein | Aufzeichnung | Cloud | Updates | Erweitert), AboutPage (update card -> Einstellungen › Updates)
@@ -83,7 +83,7 @@ src/ThixClip          (Avalonia app)
                       badge drawn by TrayIconImages), NotificationToast
   Setup/              SetupWindow (Windows install / update / uninstall assistant; autostart, desktop shortcut, auto update on)
   Dialogs/            ConfirmDialog, ClearHistoryDialog ("Verlauf löschen" as in a browser: range list with counts, Enter deletes;
-                      Ctrl/Cmd+Shift+Delete or the button below the list), PauseDialog (how long), ProblemReportDialog (crash / hang
+                      Ctrl/Cmd+Shift+Delete or the button below the list), PauseDialog (how long), ViewerDialog ("Öffnen" inside ThixClip: image fitted / 100 %, text selectable; Enter pastes, Ctrl/Cmd+C copies, Esc closes – no other program, no file), ProblemReportDialog (crash / hang
                       of the last run: the report to read and copy, the log folder)
 src/ThixClip.Cloud    the server – map, pages, API, data model: docs/CLOUD.md
 tests/ThixClip.Tests  desktop tests (see above); tests/ThixClip.Cloud.Tests, tests/e2e: the cloud

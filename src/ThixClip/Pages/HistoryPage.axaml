@@ -119,7 +119,7 @@
       <Panel>
         <ScrollViewer x:Name="DetailScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <StackPanel x:Name="Detail" Margin="20,22,22,22" Spacing="16">
-            <!-- Preview; Ctrl/Cmd+click opens it (editor, image viewer, browser) -->
+            <!-- Preview; Ctrl/Cmd+click (an image: a click) opens it in the viewer -->
             <Border x:Name="PreviewFrame" CornerRadius="14" ClipToBounds="True" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                     Background="{DynamicResource SubtleBrush}" MinHeight="120">
               <Panel>

@@ -163,12 +163,12 @@ public sealed class ClipRowViewModel(ClipEntry entry) : INotifyPropertyChanged
 
     public string FavoriteTip => $"{FavoriteText} ({Ui.CommandKey.Name}+D)";
 
-    /// <summary>What "Öffnen" does with this entry (ClipService.PrepareToOpen).</summary>
+    /// <summary>What "Öffnen" does with this entry (Dialogs.ViewerDialog).</summary>
     public string OpenName => _entry.Kind switch
     {
-        ClipKind.Image => "Bild öffnen",
-        ClipKind.Link => "Link im Browser öffnen",
-        _ => "Text im Editor öffnen",
+        ClipKind.Image => "Bild ansehen",
+        ClipKind.Link => "Link ansehen",
+        _ => "Text ansehen",
     };
 
     public string OpenTip => $"{OpenName} ({Ui.CommandKey.Name}+O oder {Ui.CommandKey.Name}+Klick)";

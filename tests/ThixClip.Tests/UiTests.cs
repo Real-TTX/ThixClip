@@ -360,6 +360,44 @@ public sealed class UiTests
     }
 
     [AvaloniaFact]
+    public void Opening_shows_the_entry_in_the_viewer_dialog()
+    {
+        using var data = new TestData();
+        SampleHistory.Create();
+        var window = Open();
+        var history = (HistoryPage)window.PageHost.Content!;
+
+        // A text: whole and selectable; Ctrl/Cmd+C copies the entry, closes the viewer and (by default) ThixClip.
+        window.KeyPressQwerty(PhysicalKey.O, CommandModifier);
+        Settle(window);
+        var viewer = Assert.IsType<Dialogs.ViewerDialog>(Assert.Single(window.OwnedWindows));
+        Assert.Equal("Produktmeeting morgen um 10 Uhr\nim Konferenzraum.", viewer.ShownText);
+        Save(viewer, "viewer-text");
+        viewer.KeyPressQwerty(PhysicalKey.C, CommandModifier);
+        Settle(window);
+        Assert.Empty(window.OwnedWindows);
+        Assert.False(window.IsVisible);
+        Assert.Equal("Produktmeeting morgen um 10 Uhr\nim Konferenzraum.", data.Clipboard.Read().Text);
+
+        // An image: fitted, Space shows it at 100 %, Esc closes and ThixClip stays.
+        window.ShowFromTray(rememberForeground: false);
+        Settle(window);
+        history.MoveSelection(1);
+        Settle(window);
+        viewer = history.OpenSelected()!;
+        Settle(window, waitForImages: true);
+        Assert.True(viewer.ShowsImage, viewer.Title);
+        Save(viewer, "viewer-image");
+        viewer.KeyPressQwerty(PhysicalKey.Space, RawInputModifiers.None);
+        Assert.True(viewer.IsActualSize);
+        viewer.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+        Settle(window);
+        Assert.Empty(window.OwnedWindows);
+        Assert.True(window.IsVisible);
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void The_about_page_leads_to_the_updates()
     {
         using var data = new TestData();
