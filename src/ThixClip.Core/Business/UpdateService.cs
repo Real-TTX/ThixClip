@@ -158,7 +158,9 @@ public static class UpdateService
             }
         }
 
-        var hash = Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(packagePath, cancellationToken)));
+        // Hashing and starting the new program run off the calling (UI) thread: Windows checks a freshly downloaded,
+        // unsigned program (Defender / SmartScreen) inside CreateProcess, which took 20 s once and froze the window.
+        var hash = await Task.Run(() => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(packagePath))), cancellationToken);
         if (!string.Equals(hash, package.Sha256, StringComparison.OrdinalIgnoreCase))
         {
             File.Delete(packagePath);
@@ -168,15 +170,26 @@ public static class UpdateService
         Log.Info($"Starting update to {manifest.Version}");
         if (OperatingSystem.IsMacOS())
         {
-            MacAppBundle.StartReplacement(packagePath);
+            await Task.Run(() =>
+            {
+                if (OperatingSystem.IsMacOS())
+                {
+                    MacAppBundle.StartReplacement(packagePath); // unpacking takes a moment: not on the UI thread
+                }
+            }, cancellationToken);
             return;
         }
 
-        Process.Start(new ProcessStartInfo(packagePath, WindowsUpdateArgument)
+        var started = Stopwatch.StartNew();
+        await Task.Run(() => Process.Start(new ProcessStartInfo(packagePath, WindowsUpdateArgument)
         {
             UseShellExecute = false,
             WorkingDirectory = AppPaths.UpdateDirectory,
-        });
+        })?.Dispose(), cancellationToken);
+        if (started.Elapsed > TimeSpan.FromSeconds(2))
+        {
+            Log.Info($"Starting the update took {started.Elapsed.TotalSeconds:0} s (virus scan of the new program)");
+        }
     }
 
     internal static bool IsSafeFileName(string fileName) =>

@@ -254,21 +254,34 @@ public partial class App : Application
         }
 
         _isExiting = true;
+        UiWatchdog.Stop();
         Log.Info("ThixClip exiting");
-        ClipboardMonitor.Stop();
-        OcrService.Stop();
-        SyncService.Stop();
-        HotkeyService.Unregister();
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        void Step(string name, Action action)
+        {
+            var started = watch.ElapsedMilliseconds;
+            action();
+            if (watch.ElapsedMilliseconds - started > 300)
+            {
+                Log.Warning($"Exit step {name} took {watch.ElapsedMilliseconds - started} ms");
+            }
+        }
+
+        Step("clipboard monitor", ClipboardMonitor.Stop);
+        Step("OCR", OcrService.Stop);
+        Step("sync", SyncService.Stop);
+        Step("shortcut", HotkeyService.Unregister);
         _retentionTimer?.Stop();
-        _trayIcon?.Dispose();
+        Step("tray icon", () => _trayIcon?.Dispose());
         if (_mainWindow is not null)
         {
             _mainWindow.IsExiting = true;
-            _mainWindow.Close();
+            Step("main window", _mainWindow.Close);
         }
 
-        ClipService.Close();
+        Step("history", ClipService.Close);
         _instanceMutex?.Dispose();
+        Log.Info($"ThixClip ended after {watch.ElapsedMilliseconds} ms");
         _desktop?.Shutdown(0);
     }
 

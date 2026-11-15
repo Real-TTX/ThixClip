@@ -18,6 +18,10 @@ internal static class UiWatchdog
     private static readonly TimeSpan KnockInterval = TimeSpan.FromSeconds(1);
     private static long _lastAnswerTicks = Stopwatch.GetTimestamp();
     private static Thread? _thread;
+    private static volatile bool _stopped;
+
+    /// <summary>ThixClip is ending (quit, update, uninstall): the UI stops answering on purpose, that is no hang.</summary>
+    public static void Stop() => _stopped = true;
 
     public static void Start()
     {
@@ -35,9 +39,14 @@ internal static class UiWatchdog
         var lastLoop = Stopwatch.GetTimestamp();
         string? openReport = null;
         var hangStarted = 0L;
-        while (true)
+        while (!_stopped)
         {
             Thread.Sleep(KnockInterval);
+            if (_stopped)
+            {
+                return;
+            }
+
             var now = Stopwatch.GetTimestamp();
 
             // The computer slept: nobody could answer, start over.
