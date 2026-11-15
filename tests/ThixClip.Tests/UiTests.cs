@@ -5,7 +5,6 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.Threading;
-using SkiaSharp;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
@@ -426,6 +425,48 @@ public sealed class UiTests
         window.Close();
     }
 
+    [AvaloniaFact]
+    public void The_snapshot_draws_every_window_in_light_and_dark_at_its_natural_size()
+    {
+        using var data = new TestData();
+        var folder = Path.Combine(data.Folder, "snapshot");
+        var report = Snapshot.Render(folder);
+
+        // Every picture is written – only the setup assistant is left out where it does not exist (macOS).
+        Assert.Equal(Snapshot.FileNames.Order(), report.Written.Concat(report.Skipped.Select(skipped => skipped.File)).Order());
+        Assert.All(report.Skipped, skipped => Assert.StartsWith("setup-", skipped.File));
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Empty(report.Skipped);
+        }
+
+        foreach (var name in report.Written)
+        {
+            Assert.True(new FileInfo(Path.Combine(folder, name)).Length > 0, name);
+        }
+
+        // 1x, the size the windows have on screen.
+        Assert.Equal((1180, 760), PictureSize(folder, "main-history-dark.png"));
+        Assert.Equal(400, PictureSize(folder, "dialog-pause-light.png").Width);
+        Assert.Equal(360, PictureSize(folder, "toast-dark.png").Width);
+        Assert.Equal((64, 64), PictureSize(folder, "tray-icon-windows-paused.png"));
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Equal((600, 560), PictureSize(folder, "setup-welcome-light.png"));
+        }
+
+        // Clock, version and computer name run and read as before; the history in the data folder is the sample's.
+        Assert.Null(AppClock.Pinned);
+        Assert.NotEqual(Snapshot.Version, AppInfo.Version);
+        Assert.Equal(7, ClipService.Count);
+    }
+
+    private static (int Width, int Height) PictureSize(string folder, string name)
+    {
+        using var codec = SkiaSharp.SKCodec.Create(Path.Combine(folder, name));
+        return (codec.Info.Width, codec.Info.Height);
+    }
+
     private static RawInputModifiers CommandModifier => OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control;
 
     private static MainWindow Open(double width = 1360, double height = 860)
@@ -475,104 +516,5 @@ public sealed class UiTests
 
         Directory.CreateDirectory(ShotFolder);
         frame.Save(Path.Combine(ShotFolder, $"{name}.png"));
-    }
-}
-
-/// <summary>The history of the mockup: texts, a link and pictures, today and yesterday.</summary>
-internal static class SampleHistory
-{
-    public static void Create()
-    {
-        var releasePlan = ClipService.CaptureText("Release-Plan Q2: Features, Tests, Rollout")!;
-        var chart = ClipService.CaptureImage(ImageCodec.Normalize(Chart())!)!;
-        var feedback = ClipService.CaptureText("Design-Feedback:\nClean, einfach, sehr stimmig.")!;
-        ClipService.CaptureImage(ImageCodec.Normalize(Mountains())!);
-        ClipService.CaptureText("https://www.example.com/produkt");
-        var todo = ClipService.CaptureImage(ImageCodec.Normalize(TodoNote())!)!;
-        ClipService.SetOcrResult(todo.Id, "To-do:\nKonzept finalisieren\nFeedback einholen\nLaunch vorbereiten", OcrState.Done);
-        ClipService.ToggleFavorite(todo.Id);
-        ClipService.CaptureText("Produktmeeting morgen um 10 Uhr\nim Konferenzraum.");
-
-        var yesterday = DateTime.Today.AddDays(-1).ToUniversalTime();
-        foreach (var (entry, hour) in new[] { (releasePlan, 9.2), (chart, 15.35), (feedback, 17.9) })
-        {
-            var current = ClipService.Get(entry.Id)!;
-            HistoryStore.Update(current with { CopiedDate = new DateTimeOffset(yesterday.AddHours(hour), TimeSpan.Zero) });
-        }
-
-        ClipService.ResetForTests();
-        ClipService.Initialize();
-    }
-
-    private static byte[] TodoNote() => Draw(900, 560, canvas =>
-    {
-        canvas.Clear(new SKColor(0xF6, 0xF4, 0xEF));
-        using var leaf = new SKPaint { Color = new SKColor(0x5E, 0x8C, 0x4E), IsAntialias = true };
-        canvas.DrawOval(70, 300, 60, 150, leaf);
-        canvas.DrawOval(110, 200, 50, 130, leaf);
-        using var board = new SKPaint { Color = SKColors.White, IsAntialias = true };
-        canvas.DrawRoundRect(200, 40, 660, 480, 16, 16, board);
-        using var text = new SKPaint { Color = new SKColor(0x22, 0x22, 0x22), IsAntialias = true, TextSize = 64, Typeface = SKTypeface.FromFamilyName("Segoe Print") };
-        canvas.DrawText("To-do:", 260, 140, text);
-        text.TextSize = 46;
-        using var box = new SKPaint { Color = new SKColor(0x22, 0x22, 0x22), IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 4 };
-        var y = 240f;
-        foreach (var line in new[] { "Konzept finalisieren", "Feedback einholen", "Launch vorbereiten" })
-        {
-            canvas.DrawRect(262, y - 36, 34, 34, box);
-            canvas.DrawText(line, 320, y, text);
-            y += 100;
-        }
-    });
-
-    private static byte[] Mountains() => Draw(1920, 1080, canvas =>
-    {
-        using var sky = new SKPaint
-        {
-            Shader = SKShader.CreateLinearGradient(new SKPoint(0, 0), new SKPoint(0, 1080),
-                [new SKColor(0x6F, 0xA8, 0xE8), new SKColor(0xDD, 0xEC, 0xFA)], SKShaderTileMode.Clamp),
-        };
-        canvas.DrawRect(0, 0, 1920, 1080, sky);
-        using var far = new SKPaint { Color = new SKColor(0x7D, 0x8B, 0xA6), IsAntialias = true };
-        using var near = new SKPaint { Color = new SKColor(0x3E, 0x4C, 0x66), IsAntialias = true };
-        using var snow = new SKPaint { Color = SKColors.White, IsAntialias = true };
-        canvas.DrawPath(Triangle(200, 760, 820, 230, 1450, 760), far);
-        canvas.DrawPath(Triangle(700, 820, 1200, 300, 1800, 820), near);
-        canvas.DrawPath(Triangle(1110, 400, 1200, 300, 1290, 400), snow);
-        using var lake = new SKPaint { Color = new SKColor(0x2F, 0x6F, 0xA8) };
-        canvas.DrawRect(0, 800, 1920, 280, lake);
-    });
-
-    private static byte[] Chart() => Draw(800, 420, canvas =>
-    {
-        canvas.Clear(SKColors.White);
-        using var bar = new SKPaint { Color = new SKColor(0x2F, 0x6F, 0xED), IsAntialias = true };
-        var heights = new[] { 60, 90, 140, 210, 320 };
-        for (var i = 0; i < heights.Length; i++)
-        {
-            canvas.DrawRoundRect(120 + i * 120, 380 - heights[i], 70, heights[i], 6, 6, bar);
-        }
-    });
-
-    private static SKPath Triangle(float x1, float y1, float x2, float y2, float x3, float y3)
-    {
-        var path = new SKPath();
-        path.MoveTo(x1, y1);
-        path.LineTo(x2, y2);
-        path.LineTo(x3, y3);
-        path.Close();
-        return path;
-    }
-
-    private static byte[] Draw(int width, int height, Action<SKCanvas> paint)
-    {
-        using var bitmap = new SKBitmap(width, height);
-        using (var canvas = new SKCanvas(bitmap))
-        {
-            paint(canvas);
-        }
-
-        using var image = SKImage.FromBitmap(bitmap);
-        return image.Encode(SKEncodedImageFormat.Png, 100).ToArray();
     }
 }

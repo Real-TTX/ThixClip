@@ -16,6 +16,8 @@ public partial class SetupWindow : ThemedWindow
 {
     private readonly bool _isUninstall;
     private readonly bool _isUpdate;
+    private readonly string? _installedVersion;
+    private readonly string _programFolder;
     private readonly ObservableCollection<string> _steps = [];
     private bool _isWorking;
     private bool _isFinished;
@@ -28,6 +30,16 @@ public partial class SetupWindow : ThemedWindow
     }
 
     private SetupWindow(bool isUninstall)
+        : this(isUninstall, isUpdate: !isUninstall && InstallService.IsInstalled, InstallService.InstalledVersion, InstallService.ProgramFolder,
+            InstallService.HasDesktopShortcut)
+    {
+    }
+
+    /// <summary>
+    /// What the assistant shows is decided here once: install or update (and the installed version), the program folder.
+    /// The snapshots pass fixed values and never ask the system.
+    /// </summary>
+    private SetupWindow(bool isUninstall, bool isUpdate, string? installedVersion, string programFolder, bool hasDesktopShortcut)
     {
         InitializeComponent();
         var workArea = WorkArea();
@@ -35,9 +47,12 @@ public partial class SetupWindow : ThemedWindow
         Height = Math.Min(Height, workArea.Height - 16);
 
         _isUninstall = isUninstall;
-        _isUpdate = !isUninstall && InstallService.IsInstalled;
+        _isUpdate = isUpdate;
+        _installedVersion = installedVersion;
+        _programFolder = programFolder;
+        DesktopToggle.IsChecked = hasDesktopShortcut;
         StepList.ItemsSource = _steps;
-        VersionText.Text = $"Version {(isUninstall ? InstallService.InstalledVersion ?? AppInfo.Version : AppInfo.Version)}";
+        VersionText.Text = $"Version {(isUninstall ? installedVersion ?? AppInfo.Version : AppInfo.Version)}";
 
         if (isUninstall)
         {
@@ -61,6 +76,35 @@ public partial class SetupWindow : ThemedWindow
         window.Activate();
     }
 
+    /// <summary>
+    /// A window for the snapshots (ThixClip --snapshot): one page of the assistant with fixed values, nothing installed,
+    /// removed or asked from the system.
+    /// </summary>
+    internal static SetupWindow ForSnapshot(SetupSnapshotPage page, string installedVersion, string programFolder)
+    {
+        var window = new SetupWindow(isUninstall: page == SetupSnapshotPage.Uninstall, isUpdate: page == SetupSnapshotPage.Update,
+            installedVersion, programFolder, hasDesktopShortcut: false);
+        if (page == SetupSnapshotPage.Progress)
+        {
+            window.ShowProgressPage();
+
+            // The running bar would show wherever its animation happens to be: a still picture shows it two thirds along.
+            window.Progress.IsIndeterminate = false;
+            window.Progress.Value = 65;
+            window._steps.Add($"Installiere ThixClip nach {programFolder}");
+            window._steps.Add("Programmdatei kopiert");
+            window._steps.Add("Startmenü-Eintrag angelegt");
+            window._steps.Add("Autostart bei der Windows-Anmeldung eingerichtet");
+        }
+        else if (page == SetupSnapshotPage.Finish)
+        {
+            window.ShowProgressPage();
+            window.ShowFinishPage(error: null);
+        }
+
+        return window;
+    }
+
     protected override void OnClosing(Avalonia.Controls.WindowClosingEventArgs e)
     {
         // Half an installation is worse than a slow one.
@@ -76,7 +120,7 @@ public partial class SetupWindow : ThemedWindow
         {
             // An update keeps autostart and shortcuts as they are: no options to ask for.
             WelcomeTitle.Text = "Update";
-            WelcomeText.Text = $"Installiert ist {InstallService.InstalledVersion ?? "eine ältere Version"}, dieses Setup bringt {AppInfo.Version}. " +
+            WelcomeText.Text = $"Installiert ist {_installedVersion ?? "eine ältere Version"}, dieses Setup bringt {AppInfo.Version}. " +
                                "Ein laufendes ThixClip wird beendet und danach wieder gestartet. Dein Verlauf bleibt erhalten.";
             OptionsCard.IsVisible = false;
             PrimaryLabel.Text = "Aktualisieren";
@@ -84,12 +128,12 @@ public partial class SetupWindow : ThemedWindow
         else
         {
             AutostartToggle.IsChecked = true;
-            DesktopToggle.IsChecked = InstallService.HasDesktopShortcut;
             AutoUpdateToggle.IsChecked = true;
             PrimaryLabel.Text = "Installieren";
         }
 
-        PlaceInfo.Show($"Wird für dein Benutzerkonto installiert – ohne Administratorrechte – nach {InstallService.ProgramFolder}.", InfoSeverity.Info);
+        // The folder on a line of its own: wrapped inside a sentence the path breaks after "C:".
+        PlaceInfo.Show($"Wird für dein Benutzerkonto installiert – ohne Administratorrechte – nach\n{_programFolder}", InfoSeverity.Info);
     }
 
     private void ShowConfirmPage()
@@ -125,10 +169,7 @@ public partial class SetupWindow : ThemedWindow
     private async Task RunAsync()
     {
         _isWorking = true;
-        WelcomePage.IsVisible = ConfirmPage.IsVisible = false;
-        ProgressPage.IsVisible = true;
-        ProgressTitle.Text = _isUninstall ? "Entferne …" : _isUpdate ? "Aktualisiere …" : "Installiere …";
-        PrimaryButton.IsEnabled = CancelButton.IsEnabled = false;
+        ShowProgressPage();
 
         var source = App.ExecutablePath;
         var options = _isUpdate ? null : new InstallOptions(AutostartToggle.IsChecked == true, DesktopToggle.IsChecked == true, AutoUpdateToggle.IsChecked == true);
@@ -161,6 +202,14 @@ public partial class SetupWindow : ThemedWindow
         ShowFinishPage(error);
     }
 
+    private void ShowProgressPage()
+    {
+        WelcomePage.IsVisible = ConfirmPage.IsVisible = false;
+        ProgressPage.IsVisible = true;
+        ProgressTitle.Text = _isUninstall ? "Entferne …" : _isUpdate ? "Aktualisiere …" : "Installiere …";
+        PrimaryButton.IsEnabled = CancelButton.IsEnabled = false;
+    }
+
     private void ShowFinishPage(string? error)
     {
         _isFinished = true;
@@ -188,4 +237,14 @@ public partial class SetupWindow : ThemedWindow
             : $"ThixClip {AppInfo.Version} ist installiert. Öffne es jederzeit mit {HotkeyService.Display(HotkeyService.DefaultHotkey)} oder über das Symbol im Infobereich.",
             InfoSeverity.Success);
     }
+}
+
+/// <summary>The pages of the assistant that "ThixClip --snapshot" draws.</summary>
+internal enum SetupSnapshotPage
+{
+    Welcome,
+    Progress,
+    Finish,
+    Update,
+    Uninstall,
 }

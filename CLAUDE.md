@@ -37,6 +37,13 @@ SkiaSharp. Cloud: ASP.NET Core **Razor Pages**, EF Core + **PostgreSQL**, **MatU
   assemblies stay whole; about 38 MB). No `dynamic`, no built-in COM: COM goes through `[GeneratedComInterface]`
   (`Platform/Windows/ShellLink`). `ThixClip.exe --self-test <report>` checks the published program (JSON, SQLite, Skia,
   token store, OCR, COM, every window) in a temporary data folder; CI runs it after every Windows publish.
+- **Snapshots:** `dotnet run --project src/ThixClip -- --snapshot docs/images` (or `ThixClip.exe --snapshot <folder>`) draws
+  the windows headless (Avalonia.Headless + Skia, fonts of the machine) into PNGs, light and dark, 1x, natural size:
+  `setup-{welcome,progress,finish,update,uninstall}`, `main-{history,settings,about,folded}`, `dialog-pause`, `toast`
+  (`-light`/`-dark`) and `tray-icon-{windows,macos}[-paused]` (64 px). Temporary data folder with `SampleHistory`, pinned
+  `AppClock` (12.11.2026 14:32), `AppInfo.Pin` (1.0.0, release, ANNA-PC), clipboard/tokens/policies/autostart in memory; no
+  tray, hotkey, network or update check. Same output every run; MatDesign shows them. `UiTests` runs it in-process. A new
+  window or page: add it to `Snapshot.cs` (and `FileNames`), look at the pictures.
 - `scripts/package-macos.sh` builds `ThixClip.app` (Info.plist with `LSUIElement`, icns, ad-hoc signature), the update zip and the dmg.
 
 ## Map
@@ -52,10 +59,11 @@ src/ThixClip.Core     (no UI) models, business layer (static classes), infrastru
                       SyncService (connect/disconnect, the loop: push -> upload images -> pull -> download images -> long poll),
                       AccessPolicy (LockConfiguration, DisableCloud, DisableUpdates), AutostartService (HKCU Run / LaunchAgent),
                       RecordingService (pause: 15/30 min, 1 h stored with its end, until restart in memory, until resumed),
-                      InstallService (Windows self-installing exe), UpdateService + MacAppBundle (OTA from GitHub releases)
+                      InstallService (Windows self-installing exe), UpdateService + MacAppBundle (OTA from GitHub releases),
+                      SampleHistory (the mockup's history, drawn with Skia: UI tests and snapshots, only into a test/temp folder)
   Infrastructure/     HistoryStore (SQLite history.db: ClipEntry, ClipImage), SettingsStore (settings.json), ImageCodec (SkiaSharp:
                       normalise to PNG, DIB in/out, thumbnails), CloudClient (HTTP of the contract), TokenStore (DPAPI / Keychain),
-                      AppPaths, AppInfo, Log, ProblemReports (unhandled exceptions -> logs/crash-*.txt + message box on Windows,
+                      AppPaths, AppInfo (Pin: fixed version for snapshots), AppClock (the time of history and UI; Pin for snapshots), Log, ProblemReports (unhandled exceptions -> logs/crash-*.txt + message box on Windows,
                       hangs -> logs/hang-*.txt + .dmp on Windows; shown once at the next start)
   Platform/           NativeClipboard (+ Windows/WindowsClipboard, Mac/MacClipboard), PasteTarget (+ WindowsPaste, MacPaste:
                       remember the app in front, bring it back, Ctrl+V / Cmd+V), TextRecognition (WindowsOcr / MacOcr = Vision),
@@ -68,6 +76,7 @@ src/ThixClip          (Avalonia app)
                       hotkey, prewarm, timers, TogglePauseAsync (the pause dialog for header, tray, settings, Ctrl/Cmd+Shift+P)
   UiWatchdog          knocks on the UI thread every second; 8 s without an answer = hang report (ProblemReports.WriteHang)
   SelfTest            --self-test of the published program (CI)
+  Snapshot            --snapshot <folder>: every window as PNG, headless (see Build / run / test)
   MainWindow          header (search, pause button: framed "Pausieren" / amber "Fortsetzen · pausiert bis …", shortcut chip, own caption buttons on Windows / traffic lights on macOS), sidebar (sections,
                       retention card, cloud state, version = about; folds to a 68 px icon rail with Ctrl/Cmd+B or the button at its
                       foot, remembered in AppSettings.IsSidebarCollapsed), page host; ALL keyboard handling (OnPreviewKeyDown)

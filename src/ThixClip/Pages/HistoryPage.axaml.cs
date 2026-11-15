@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using ThixClip.Controls;
 using ThixClip.Core.Business;
+using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
 using ThixClip.Dialogs;
 using ThixClip.Shared;
@@ -339,7 +340,7 @@ public partial class HistoryPage : UserControl
         }
 
         var day = entry.CopiedDate.ToLocalTime().Date;
-        var today = DateTime.Today;
+        var today = AppClock.Today;
         if (day >= today)
         {
             return "Heute";

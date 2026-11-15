@@ -8,16 +8,24 @@ public static class AppInfo
 {
     private static readonly Assembly ThisAssembly = typeof(AppInfo).Assembly;
 
+    private static readonly string BuiltVersion =
+        ThisAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "local";
+
+    private static readonly string BuiltChannel = ReadMetadata("ThixClipChannel") ?? "local";
+
+    private static readonly int BuiltNumber = int.TryParse(ReadMetadata("ThixClipBuildNumber"), out var number) ? number : 0;
+
+    private static Pinned? _pinned;
+
     public const string ProductName = "ThixClip";
 
     /// <summary>e.g. 0.1.42-20261114, nightly-43-20261114 or local-20261114.</summary>
-    public static string Version { get; } =
-        ThisAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "local";
+    public static string Version => _pinned?.Version ?? BuiltVersion;
 
     /// <summary>release, nightly or local.</summary>
-    public static string Channel { get; } = ReadMetadata("ThixClipChannel") ?? "local";
+    public static string Channel => _pinned?.Channel ?? BuiltChannel;
 
-    public static int BuildNumber { get; } = int.TryParse(ReadMetadata("ThixClipBuildNumber"), out var number) ? number : 0;
+    public static int BuildNumber => _pinned?.BuildNumber ?? BuiltNumber;
 
     /// <summary>owner/name of the GitHub repository that publishes the builds.</summary>
     public static string Repository { get; } = ReadMetadata("ThixClipRepository") ?? "Real-TTX/ThixClip";
@@ -32,6 +40,11 @@ public static class AppInfo
     {
         get
         {
+            if (_pinned is not null)
+            {
+                return _pinned.MachineName;
+            }
+
             try
             {
                 return Environment.MachineName;
@@ -43,6 +56,15 @@ public static class AppInfo
         }
     }
 
+    /// <summary>
+    /// Shows a fixed version, channel and computer name instead of the built ones (the snapshots of "ThixClip --snapshot"
+    /// look the same from every build and machine); null = the built values again.
+    /// </summary>
+    internal static void Pin(string? version, string channel = "release", int buildNumber = 0, string machineName = "Computer") =>
+        _pinned = version is null ? null : new Pinned(version, channel, buildNumber, machineName);
+
     private static string? ReadMetadata(string key) =>
         ThisAssembly.GetCustomAttributes<AssemblyMetadataAttribute>().FirstOrDefault(attribute => attribute.Key == key)?.Value;
+
+    private sealed record Pinned(string Version, string Channel, int BuildNumber, string MachineName);
 }

@@ -70,11 +70,12 @@ internal sealed class NotificationToast : ThemedWindow
         DispatcherTimer.RunOnce(Close, TimeSpan.FromSeconds(7));
     }
 
-    public static void Show(string title, string text, bool isWarning, Action onClick)
+    public static NotificationToast Show(string title, string text, bool isWarning, Action onClick)
     {
         var toast = new NotificationToast(title, text, isWarning, onClick);
         Open.Add(toast);
         toast.Show();
+        return toast;
     }
 
     private static void RestackAll()

@@ -336,7 +336,7 @@ internal static class HistoryStore
         CreateDate = FromMilliseconds(reader.GetInt64(18)),
     };
 
-    private static long Now() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    private static long Now() => AppClock.UtcNow.ToUnixTimeMilliseconds();
 
     private static long ToMilliseconds(DateTimeOffset value) => value.ToUnixTimeMilliseconds();
 

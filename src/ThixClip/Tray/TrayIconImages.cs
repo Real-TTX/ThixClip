@@ -29,7 +29,10 @@ internal static class TrayIconImages
     }
 
     /// <summary>The paused icon as a 64 px PNG (null when the source cannot be decoded).</summary>
-    internal static byte[]? PausedPng(Stream source, bool isTemplate)
+    internal static byte[]? PausedPng(Stream source, bool isTemplate) => Png(source, isTemplate, withPauseBadge: true);
+
+    /// <summary>The icon as a 64 px PNG, with or without the pause badge (null when the source cannot be decoded).</summary>
+    internal static byte[]? Png(Stream source, bool isTemplate, bool withPauseBadge)
     {
         {
             using var original = SKBitmap.Decode(source);
@@ -47,6 +50,11 @@ internal static class TrayIconImages
                 canvas.DrawImage(image, new SKRect(0, 0, Size, Size), smooth);
             }
 
+            if (!withPauseBadge)
+            {
+                return Encode(surface);
+            }
+
             var center = new SKPoint(Size * 0.71f, Size * 0.71f);
             var radius = Size * 0.29f;
             using var clear = new SKPaint { BlendMode = SKBlendMode.Clear, IsAntialias = true };
@@ -62,9 +70,14 @@ internal static class TrayIconImages
             canvas.DrawRoundRect(new SKRect(center.X - gap / 2 - barWidth, center.Y - barHeight / 2, center.X - gap / 2, center.Y + barHeight / 2), 2, 2, bars);
             canvas.DrawRoundRect(new SKRect(center.X + gap / 2, center.Y - barHeight / 2, center.X + gap / 2 + barWidth, center.Y + barHeight / 2), 2, 2, bars);
 
-            using var snapshot = surface.Snapshot();
-            using var png = snapshot.Encode(SKEncodedImageFormat.Png, 100);
-            return png.ToArray();
+            return Encode(surface);
         }
+    }
+
+    private static byte[] Encode(SKSurface surface)
+    {
+        using var snapshot = surface.Snapshot();
+        using var png = snapshot.Encode(SKEncodedImageFormat.Png, 100);
+        return png.ToArray();
     }
 }

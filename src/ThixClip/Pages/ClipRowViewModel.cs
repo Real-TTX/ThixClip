@@ -150,7 +150,7 @@ public sealed class ClipRowViewModel(ClipEntry entry) : INotifyPropertyChanged
                 return "Unbegrenzt";
             }
 
-            var left = (_entry.CopiedDate.AddDays(days) - DateTimeOffset.UtcNow).TotalDays;
+            var left = (_entry.CopiedDate.AddDays(days) - AppClock.UtcNow).TotalDays;
             return left < 1 ? "Weniger als 1 Tag" : $"Noch {Math.Ceiling(left):0} Tage";
         }
     }

@@ -57,7 +57,7 @@ internal static class Ui
     public static string FormatTime(DateTimeOffset value)
     {
         var local = value.ToLocalTime();
-        var today = DateTime.Today;
+        var today = AppClock.Today;
         if (local.Date == today)
         {
             return local.ToString("HH:mm");
@@ -75,12 +75,12 @@ internal static class Ui
     public static string FormatDateTime(DateTimeOffset value)
     {
         var local = value.ToLocalTime();
-        if (local.Date == DateTime.Today)
+        if (local.Date == AppClock.Today)
         {
             return $"Heute, {local:HH:mm}";
         }
 
-        return local.Date == DateTime.Today.AddDays(-1) ? $"Gestern, {local:HH:mm}" : local.ToString("dd.MM.yyyy, HH:mm");
+        return local.Date == AppClock.Today.AddDays(-1) ? $"Gestern, {local:HH:mm}" : local.ToString("dd.MM.yyyy, HH:mm");
     }
 
     public static string FormatBytes(long bytes) => bytes switch

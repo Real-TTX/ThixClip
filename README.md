@@ -130,6 +130,9 @@ dotnet test tests/ThixClip.Cloud.Tests
   zweier Geräte gegen eine echte Cloud (z. B. den lokalen Stack).
 - `ThixClip.exe --self-test <bericht.txt>` prüft das veröffentlichte (getrimmte) Programm selbst – JSON, SQLite, Skia, OCR,
   Verknüpfungen, alle Fenster – in einem eigenen Temp-Ordner; die CI führt das bei jedem Windows-Build aus.
+- `dotnet run --project src/ThixClip -- --snapshot docs/images` (oder `ThixClip.exe --snapshot <ordner>`) zeichnet die Fenster
+  ohne Bildschirm als PNG (hell und dunkel, 1x, natürliche Größe: `setup-*`, `main-*`, `dialog-pause-*`, `toast-*`, `tray-icon-*`) –
+  mit Beispielverlauf in einem Temp-Ordner, fester Uhrzeit und Version 1.0.0; für die Bilder in `docs/images` und in MatDesign.
 - `THIXCLIP_DATA_DIR=<ordner>` startet die App mit eigenem Datenordner (eigene Instanz, berührt nichts Installiertes).
 - Logo und Icons: `branding/` ([branding/README.md](branding/README.md)), neu rendern mit `cd tools && npm install && node render-icons.js`.
 - Aufbau, Regeln und Protokoll: [CLAUDE.md](CLAUDE.md), [docs/CLOUD.md](docs/CLOUD.md).

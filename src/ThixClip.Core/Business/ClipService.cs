@@ -386,7 +386,7 @@ public static class ClipService
             return 0;
         }
 
-        var cutoff = DateTimeOffset.UtcNow.AddDays(-days);
+        var cutoff = AppClock.UtcNow.AddDays(-days);
         List<ClipEntry> expired;
         lock (Gate)
         {
@@ -753,7 +753,7 @@ public static class ClipService
                 return null;
             }
 
-            var now = DateTimeOffset.UtcNow;
+            var now = AppClock.UtcNow;
             moved = existing with { CopiedDate = now, UpdateDate = now, SyncState = SyncState.Pending };
             Entries[existing.Id] = moved;
             HistoryStore.Update(moved);
@@ -766,7 +766,7 @@ public static class ClipService
 
     private static ClipEntry Add(ClipEntry template, byte[]? png, byte[]? thumbnail)
     {
-        var now = DateTimeOffset.UtcNow;
+        var now = AppClock.UtcNow;
         var entry = template with
         {
             CreateDate = now,
@@ -794,7 +794,7 @@ public static class ClipService
         lock (Gate)
         {
             var entry = Entries.GetValueOrDefault(id) ?? throw new BusinessException("Den Eintrag gibt es nicht mehr.");
-            changed = change(entry) with { UpdateDate = DateTimeOffset.UtcNow, SyncState = SyncState.Pending };
+            changed = change(entry) with { UpdateDate = AppClock.UtcNow, SyncState = SyncState.Pending };
             Entries[id] = changed;
             HistoryStore.Update(changed);
         }
@@ -805,7 +805,7 @@ public static class ClipService
     }
 
     private static DateTimeOffset? StartOf(ClearRange range) => ClearRanges.IsValid(range)
-        ? ClearRanges.Start(range, DateTimeOffset.UtcNow)
+        ? ClearRanges.Start(range, AppClock.UtcNow)
         : throw new BusinessException("Diesen Zeitraum gibt es nicht.");
 
     private static bool IsCleared(ClipEntry entry, DateTimeOffset? start) => !entry.IsKeptForever && (start is null || entry.CopiedDate >= start);
@@ -820,7 +820,7 @@ public static class ClipService
         }
 
         HistoryStore.MarkDeleted(entry.Id, SyncState.Pending);
-        Tombstones[entry.Id] = entry with { Text = null, OcrText = null, HasImage = false, SyncState = SyncState.Pending, UpdateDate = DateTimeOffset.UtcNow };
+        Tombstones[entry.Id] = entry with { Text = null, OcrText = null, HasImage = false, SyncState = SyncState.Pending, UpdateDate = AppClock.UtcNow };
     }
 
     private static ClipEntry FromRemote(ClipDto remote, ClipEntry? local) => new()

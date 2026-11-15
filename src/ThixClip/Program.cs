@@ -13,13 +13,20 @@ internal static class Program
     public static int Main(string[] args)
     {
         // First of all: no error ends ThixClip without a report (and on Windows a message box).
-        ThixClip.Core.Infrastructure.ProblemReports.Install(showMessageBox: !args.Contains(SelfTest.Argument));
+        var isSnapshot = args.Contains(Snapshot.Argument);
+        ThixClip.Core.Infrastructure.ProblemReports.Install(showMessageBox: !args.Contains(SelfTest.Argument) && !isSnapshot);
 
-        // The self test works in a fresh folder of its own (before anything reads the data folder).
-        if (args.Contains(SelfTest.Argument))
+        // The self test and the snapshots work in a fresh folder of their own (before anything reads the data folder).
+        if (args.Contains(SelfTest.Argument) || isSnapshot)
         {
             Environment.SetEnvironmentVariable(ThixClip.Core.Infrastructure.AppPaths.DataDirectoryVariable,
-                Path.Combine(Path.GetTempPath(), "thixclip-self-test", Guid.NewGuid().ToString("N")));
+                Path.Combine(Path.GetTempPath(), isSnapshot ? "thixclip-snapshot" : "thixclip-self-test", Guid.NewGuid().ToString("N")));
+        }
+
+        // The snapshots draw the windows headless: no screen, no tray, no shortcut, no single-instance check.
+        if (isSnapshot)
+        {
+            return Snapshot.Run(args);
         }
 
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args, ShutdownMode.OnExplicitShutdown);
