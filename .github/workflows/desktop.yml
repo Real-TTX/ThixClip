@@ -44,6 +44,11 @@ on:
 permissions:
   contents: write
 
+# One run per branch at a time: two quick pushes must not upload to the same release channel at once (queued, not cancelled).
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   DOTNET_VERSION: '10.0.x'
   DOTNET_NOLOGO: true

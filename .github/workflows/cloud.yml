@@ -35,6 +35,11 @@ permissions:
   contents: read
   packages: write
 
+# One run per branch at a time: two quick pushes must not push the same image tags at once (queued, not cancelled).
+concurrency:
+  group: cloud-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   DOTNET_VERSION: '10.0.x'
   DOTNET_NOLOGO: true
