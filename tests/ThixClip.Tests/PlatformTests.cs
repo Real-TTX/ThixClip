@@ -1,6 +1,7 @@
 using Microsoft.Win32;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
+using ThixClip.Core.Models;
 
 namespace ThixClip.Tests;
 
@@ -101,10 +102,17 @@ public sealed class PlatformTests : IDisposable
     }
 
     [Fact]
-    public void A_local_build_never_updates_itself()
+    public void A_local_build_or_the_policy_stops_updates()
     {
-        Assert.True(AppInfo.IsLocalBuild);
+        // CI builds are release or nightly builds; a local build never updates itself.
+        if (AppInfo.IsLocalBuild)
+        {
+            Assert.False(UpdateService.CanUpdate);
+        }
+
+        AccessPolicy.UsePolicyReaderForTests(name => name == "DisableUpdates");
         Assert.False(UpdateService.CanUpdate);
+        Assert.ThrowsAsync<BusinessException>(() => UpdateService.CheckAsync()).Wait();
     }
 
     [Fact]

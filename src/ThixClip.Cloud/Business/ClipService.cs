@@ -262,27 +262,31 @@ public static class ClipService
 
     /// <summary>
     /// Waits (at most <paramref name="timeout"/>) until the account has a revision above <paramref name="since"/>; answers the latest revision. The live list of
-    /// the browser and the long poll of the devices use it.
+    /// the browser and the long poll of the devices use it. A wake-up that brought nothing new (the signals are per account id and in memory) keeps waiting for
+    /// the rest of the time; a revision below <paramref name="since"/> (the account was emptied or deleted) ends the wait at once.
     /// </summary>
     public static async Task<long> WaitAsync(AppDbContext db, Actor actor, long since, TimeSpan timeout, CancellationToken ct)
     {
-        var signal = RevisionSignals.Next(actor.UserId);
-        var latest = await Revisions.LatestAsync(db, actor.UserId, ct);
-        if (latest > since)
+        var deadline = DateTime.UtcNow + timeout;
+        while (true)
         {
-            return latest;
-        }
+            var signal = RevisionSignals.Next(actor.UserId);
+            var latest = await Revisions.LatestAsync(db, actor.UserId, ct);
+            var left = deadline - DateTime.UtcNow;
+            if (latest != since || left <= TimeSpan.Zero)
+            {
+                return latest;
+            }
 
-        try
-        {
-            await signal.WaitAsync(timeout, ct);
+            try
+            {
+                await signal.WaitAsync(left, ct);
+            }
+            catch (TimeoutException)
+            {
+                return await Revisions.LatestAsync(db, actor.UserId, ct);
+            }
         }
-        catch (TimeoutException)
-        {
-            return latest;
-        }
-
-        return await Revisions.LatestAsync(db, actor.UserId, ct);
     }
 
     /// <summary>The retention of one account: clips copied before the time it keeps them go (not favourites, not pinned). Answers how many went.</summary>
