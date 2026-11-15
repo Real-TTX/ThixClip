@@ -39,10 +39,11 @@ SkiaSharp. Cloud: ASP.NET Core **Razor Pages**, EF Core + **PostgreSQL**, **MatU
 
 ```
 src/ThixClip.Shared   the sync contract (SyncContract.cs): routes, DTOs, limits, JSON options. Only backwards-compatible changes.
+                      ClearRange.cs: the ranges of "Verlauf löschen" (letzte Stunde … gesamte Zeit), the same on desktop and in the browser
 src/ThixClip.Core     (no UI) models, business layer (static classes), infrastructure, native code
   Models/             ClipEntry (immutable record; OcrState, SyncState), AppSettings (+ CloudSettings), ClipQuery, Hotkey, BusinessException
   Business/           ClipService (the history in memory + HistoryStore: capture, dedupe by content hash, query/search incl. OCR,
-                      favourite/pin/delete/clear, retention, the sync hooks), ClipboardMonitor (polls the change counter, 250 ms),
+                      favourite/pin/delete, ClearHistory(ClearRange) by last copy time, retention, the sync hooks), ClipboardMonitor (polls the change counter, 250 ms),
                       OcrService (queue), HotkeyService (parse/format/display/validate, registration), SettingsService,
                       SyncService (connect/disconnect, the loop: push -> upload images -> pull -> download images -> long poll),
                       AccessPolicy (LockConfiguration, DisableCloud, DisableUpdates), AutostartService (HKCU Run / LaunchAgent),
@@ -58,7 +59,8 @@ src/ThixClip.Core     (no UI) models, business layer (static classes), infrastru
 src/ThixClip          (Avalonia app)
   App.axaml(.cs)      start-up: Windows setup mode, single instance (mutex + pipe), services, tray, hotkey, prewarm, timers
   MainWindow          header (search, shortcut chip, own caption buttons on Windows / traffic lights on macOS), sidebar (sections,
-                      retention card, cloud state, version = about), page host; ALL keyboard handling (OnPreviewKeyDown)
+                      retention card, cloud state, version = about; folds to a 68 px icon rail with Ctrl/Cmd+B or the button at its
+                      foot, remembered in AppSettings.IsSidebarCollapsed), page host; ALL keyboard handling (OnPreviewKeyDown)
   Pages/              HistoryPage (list grouped by day + detail pane, adaptive below 820 px), ClipRowViewModel, SettingsPage
                       (tabs Allgemein | Aufzeichnung | Cloud | Updates | Erweitert), AboutPage
   Controls/           ONE code base per control: IconView (line icons), IconLabel, ActionBar (left, positive -> negative, Separated
@@ -66,7 +68,8 @@ src/ThixClip          (Avalonia app)
   Themes/             Theme.axaml (light + dark theme dictionaries, ControlThemes), Icons.axaml (generated)
   Tray/               TrayIcon (menu: open, last five entries, pause, sync, settings, update, quit), NotificationToast
   Setup/              SetupWindow (Windows install / update / uninstall assistant)
-  Dialogs/            ConfirmDialog
+  Dialogs/            ConfirmDialog, ClearHistoryDialog ("Verlauf löschen" as in a browser: range list with counts, Enter deletes;
+                      Ctrl/Cmd+Shift+Delete or the button below the list)
 src/ThixClip.Cloud    the server – map, pages, API, data model: docs/CLOUD.md
 tests/ThixClip.Tests  desktop tests (see above); tests/ThixClip.Cloud.Tests, tests/e2e: the cloud
 ```

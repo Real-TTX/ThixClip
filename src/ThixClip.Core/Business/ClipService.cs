@@ -254,13 +254,18 @@ public static class ClipService
         SyncService.Kick();
     }
 
-    /// <summary>Deletes everything except favourites and pinned entries; returns how many went.</summary>
-    public static int ClearHistory()
+    /// <summary>
+    /// "Verlauf löschen" as in a browser: deletes what was copied within the range (here and, through the cloud, on every
+    /// device), except favourites and pinned entries; returns how many went.
+    /// </summary>
+    public static int ClearHistory(ClearRange range)
     {
+        var start = StartOf(range);
+        EnsureLoaded();
         int count;
         lock (Gate)
         {
-            var doomed = Entries.Values.Where(entry => !entry.IsKeptForever).ToList();
+            var doomed = Entries.Values.Where(entry => IsCleared(entry, start)).ToList();
             foreach (var entry in doomed)
             {
                 Entries.Remove(entry.Id);
@@ -277,6 +282,17 @@ public static class ClipService
         }
 
         return count;
+    }
+
+    /// <summary>How many entries <see cref="ClearHistory"/> would delete for the range (the dialog shows it before).</summary>
+    public static int CountToClear(ClearRange range)
+    {
+        var start = StartOf(range);
+        EnsureLoaded();
+        lock (Gate)
+        {
+            return Entries.Values.Count(entry => IsCleared(entry, start));
+        }
     }
 
     /// <summary>Puts an entry on the system clipboard (it then moves to the top, like any copy).</summary>
@@ -738,6 +754,12 @@ public static class ClipService
         SyncService.Kick();
         return changed;
     }
+
+    private static DateTimeOffset? StartOf(ClearRange range) => ClearRanges.IsValid(range)
+        ? ClearRanges.Start(range, DateTimeOffset.UtcNow)
+        : throw new BusinessException("Diesen Zeitraum gibt es nicht.");
+
+    private static bool IsCleared(ClipEntry entry, DateTimeOffset? start) => !entry.IsKeptForever && (start is null || entry.CopiedDate >= start);
 
     /// <summary>Without the cloud an entry simply goes; with it a tombstone tells the other devices.</summary>
     private static void DeleteLocked(ClipEntry entry)

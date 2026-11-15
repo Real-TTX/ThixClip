@@ -34,9 +34,8 @@
         <!-- Below the list: actions (left, positive to negative, delete separated) and the keys -->
         <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
           <controls:ActionBar DockPanel.Dock="Left" VerticalAlignment="Center">
-            <Button x:Name="ClearButton" Theme="{StaticResource DangerButton}" controls:ActionBar.Separated="True" Click="OnClearClick"
-                    ToolTip.Tip="Löscht alle Einträge außer Favoriten und angehefteten">
-              <controls:IconLabel Icon="{StaticResource Icon.Delete}" Text="Verlauf leeren" />
+            <Button x:Name="ClearButton" Theme="{StaticResource DangerButton}" controls:ActionBar.Separated="True" Click="OnClearClick">
+              <controls:IconLabel Icon="{StaticResource Icon.Delete}" Text="Verlauf löschen …" />
             </Button>
           </controls:ActionBar>
           <WrapPanel x:Name="KeyHints" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0" />

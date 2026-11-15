@@ -120,6 +120,79 @@ public sealed class UiTests
     }
 
     [AvaloniaFact]
+    public void The_menu_folds_to_its_icons_and_stays_folded()
+    {
+        using var data = new TestData();
+        SampleHistory.Create();
+        var window = Open();
+        var history = (HistoryPage)window.PageHost.Content!;
+        var full = window.Sidebar.Bounds.Width;
+        var listWidth = history.ClipList.Bounds.Width;
+
+        // Ctrl/Cmd+B folds the menu: icons only, the page gets the room, the search field keeps the focus.
+        window.KeyPressQwerty(PhysicalKey.B, CommandModifier);
+        Settle(window);
+        Assert.True(window.IsSidebarCollapsed);
+        Assert.Equal(68, window.Sidebar.Bounds.Width);
+        Assert.False(window.RetentionCard.IsVisible);
+        Assert.False(window.CloudText.IsVisible);
+        Assert.True(history.ClipList.Bounds.Width > listWidth + 150, $"{listWidth} -> {history.ClipList.Bounds.Width}");
+        Assert.True(window.SearchBox.IsFocused);
+        Assert.True(SettingsService.Get().IsSidebarCollapsed, "the choice is remembered");
+        Save(window, "menu-folded");
+        window.Close();
+
+        // A new start comes folded; the button at the foot of the menu unfolds it.
+        var again = Open();
+        Assert.True(again.IsSidebarCollapsed);
+        again.SidebarToggle.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Settle(again);
+        Assert.False(again.IsSidebarCollapsed);
+        Assert.Equal(full, again.Sidebar.Bounds.Width);
+        Assert.True(again.RetentionCard.IsVisible);
+        Assert.False(SettingsService.Get().IsSidebarCollapsed);
+        again.Close();
+    }
+
+    [AvaloniaFact]
+    public void Ctrl_shift_delete_deletes_a_range_as_in_a_browser()
+    {
+        using var data = new TestData();
+        SampleHistory.Create(); // today: three entries and the To-do favourite; yesterday: three more
+        var window = Open();
+        var history = (HistoryPage)window.PageHost.Content!;
+        var clearKeys = OperatingSystem.IsMacOS() ? PhysicalKey.Backspace : PhysicalKey.Delete;
+
+        // The dialog offers the shortest range first; Esc leaves everything as it was.
+        window.KeyPressQwerty(clearKeys, CommandModifier | RawInputModifiers.Shift);
+        Settle(window);
+        var dialog = Assert.IsType<Dialogs.ClearHistoryDialog>(Assert.Single(window.OwnedWindows));
+        Settle(dialog);
+        Save(dialog, "clear-history");
+        dialog.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+        Settle(window);
+        Assert.Empty(window.OwnedWindows);
+        Assert.Equal(7, ClipService.Count);
+
+        // Again: ↓ ↑ walk the ranges, Enter deletes the last hour – the favourite and yesterday stay.
+        window.KeyPressQwerty(clearKeys, CommandModifier | RawInputModifiers.Shift);
+        Settle(window);
+        dialog = Assert.IsType<Dialogs.ClearHistoryDialog>(Assert.Single(window.OwnedWindows));
+        Settle(dialog);
+        dialog.KeyPressQwerty(PhysicalKey.ArrowDown, RawInputModifiers.None);
+        dialog.KeyPressQwerty(PhysicalKey.ArrowUp, RawInputModifiers.None);
+        Settle(dialog);
+        dialog.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        Settle(window);
+        Assert.Empty(window.OwnedWindows);
+        Assert.Equal(4, ClipService.Count);
+        Assert.Equal("3 Einträge gelöscht.", history.SubtitleText.Text);
+        Assert.True(history.Selected!.IsFavorite, "the newest entry left is chosen");
+        Assert.True(window.SearchBox.IsFocused, "the keyboard goes on in the search field");
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void A_narrow_window_keeps_the_list()
     {
         using var data = new TestData();

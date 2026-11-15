@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using ThixClip.Cloud.Business;
 using ThixClip.Cloud.Web;
+using ThixClip.Shared;
 
 namespace ThixClip.Cloud.Pages.Clips;
 
@@ -68,11 +69,12 @@ public sealed class IndexModel : AppPageModel
         return Back(returnUrl, "/Clips");
     }
 
-    /// <summary>"Verlauf leeren": every clip goes except favourites and pinned ones, on every device.</summary>
-    public async Task<IActionResult> OnPostClearAsync()
+    /// <summary>"Verlauf löschen" (the dialog below the list): the clips copied within the range go, except favourites and pinned ones, on every device.</summary>
+    public async Task<IActionResult> OnPostClearAsync(ClearRange range)
     {
-        var removed = await ClipService.ClearHistoryAsync(Db, Actor);
-        Flash(removed == 0 ? "Es gab nichts zu löschen." : removed == 1 ? "1 Eintrag gelöscht." : $"{Ui.Number(removed)} Einträge gelöscht.");
+        var removed = await ClipService.ClearHistoryAsync(Db, Actor, range);
+        var when = ClearRanges.Text(range);
+        Flash(removed == 0 ? $"{when}: es gab nichts zu löschen." : removed == 1 ? $"{when}: 1 Eintrag gelöscht." : $"{when}: {Ui.Number(removed)} Einträge gelöscht.");
         return RedirectToPage();
     }
 }

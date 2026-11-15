@@ -1,9 +1,12 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Threading;
+using ThixClip.Controls;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
@@ -18,10 +21,14 @@ namespace ThixClip;
 /// focused and the newest entry chosen, and hides it again. Everything works with the keyboard:
 ///   typing = search, ↑ ↓ PageUp PageDown = choose, Enter = paste (or copy), Esc = clear search / close,
 ///   Cmd/Ctrl+C copy, +D favourite, +P pin, +Delete (macOS Cmd+Backspace) delete, +F search, +1/2/3 sections,
-///   +, settings, Alt+1 ... Alt+9 paste the n-th entry at once.
+///   +, settings, +B fold the menu, +Shift+Delete (macOS Cmd+Shift+Backspace) "Verlauf löschen" as in a browser,
+///   Alt+1 ... Alt+9 paste the n-th entry at once.
 /// </summary>
 public partial class MainWindow : ThemedWindow
 {
+    /// <summary>The folded menu: the icons with their margins (14 + 12 + 16 + 12 + 14).</summary>
+    private const double FoldedSidebarWidth = 68;
+
     private readonly HistoryPage _history = new();
     private readonly Lazy<SettingsPage> _settings = new(() => new SettingsPage());
     private readonly Lazy<AboutPage> _about = new(() => new AboutPage());
@@ -34,6 +41,7 @@ public partial class MainWindow : ThemedWindow
         var settings = SettingsService.Get();
         Width = settings.WindowWidth;
         Height = settings.WindowHeight;
+        IsSidebarCollapsed = settings.IsSidebarCollapsed;
 
         if (OperatingSystem.IsMacOS())
         {
@@ -84,18 +92,14 @@ public partial class MainWindow : ThemedWindow
         SizeChanged += (_, e) =>
         {
             RetentionDescription.IsVisible = RetentionHint.IsVisible = e.NewSize.Height >= 640;
-            var sidebar = new GridLength(e.NewSize.Width < 900 ? 210 : 248);
-            BodyGrid.ColumnDefinitions[0].Width = sidebar;
-            if (!OperatingSystem.IsMacOS())
-            {
-                HeaderGrid.ColumnDefinitions[0].Width = sidebar;
-            }
+            ApplySidebarWidth(e.NewSize.Width);
         };
 
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
         Deactivated += (_, _) => HideWhenAnotherAppComesFirst();
 
         InitializeRetention();
+        ApplySidebar();
         RefreshSidebar();
         SettingsService.Changed += (_, _) => Ui.Post(RefreshSidebar);
         SyncService.StatusChanged += (_, _) => Ui.Post(RefreshCloudStatus);
@@ -114,6 +118,28 @@ public partial class MainWindow : ThemedWindow
 
     /// <summary>True while the window is shown and in front (the shortcut then hides it).</summary>
     public bool IsActiveQuickWindow { get; private set; }
+
+    /// <summary>The menu at the left is folded to its icons (Ctrl/Cmd+B, the button at its foot); remembered across starts.</summary>
+    public bool IsSidebarCollapsed { get; private set; }
+
+    public void ToggleSidebar()
+    {
+        IsSidebarCollapsed = !IsSidebarCollapsed;
+        ApplySidebar();
+        SettingsService.Remember(settings => settings with { IsSidebarCollapsed = IsSidebarCollapsed });
+    }
+
+    /// <summary>"Verlauf löschen" (Ctrl/Cmd+Shift+Delete as in a browser): the history page asks for the range.</summary>
+    public async Task ClearHistoryAsync()
+    {
+        if (PageHost.Content != _history)
+        {
+            ShowSection(_history.Section);
+        }
+
+        await _history.AskToClearAsync();
+        SearchBox.Focus();
+    }
 
     /// <summary>The shortcut was pressed (UI thread).</summary>
     public void ToggleFromHotkey()
@@ -326,6 +352,17 @@ public partial class MainWindow : ThemedWindow
                 e.Handled = true;
                 ShowSettings();
                 return;
+
+            case Key.B when withCommand:
+                e.Handled = true;
+                ToggleSidebar();
+                return;
+
+            case Key.Delete when withCommand && e.KeyModifiers.HasFlag(KeyModifiers.Shift):
+            case Key.Back when withCommand && e.KeyModifiers.HasFlag(KeyModifiers.Shift) && OperatingSystem.IsMacOS():
+                e.Handled = true;
+                _ = ClearHistoryAsync();
+                return;
         }
 
         if (!onHistory || (!inSearch && !inList))
@@ -476,8 +513,59 @@ public partial class MainWindow : ThemedWindow
             ? "Gilt für alle Geräte des Cloud-Kontos. Favoriten und angeheftete Einträge bleiben immer."
             : "Favoriten und angeheftete Einträge bleiben immer.";
         HotkeyCaps.Keys = settings.Hotkey;
-        VersionButton.Content = $"Version {AppInfo.Version}";
         RefreshCloudStatus();
+    }
+
+    /// <summary>
+    /// Full menu: the sections with their names, the retention card, the cloud state and the version. Folded: the icons alone
+    /// (their tool tips name them), the cloud dot, an info icon for the about page; on Windows the header keeps the logo
+    /// above the icons, so the search field stays in line with the page.
+    /// </summary>
+    private void ApplySidebar()
+    {
+        var folded = IsSidebarCollapsed;
+        foreach (var item in new[] { NavHistory, NavImages, NavFavorites, NavSettings })
+        {
+            ((IconLabel)item.Content!).IsTextVisible = !folded;
+        }
+
+        RetentionCard.IsVisible = !folded;
+        CloudText.IsVisible = !folded;
+        CloudStatus.HorizontalContentAlignment = folded ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+        BrandName.IsVisible = !folded || OperatingSystem.IsMacOS();
+
+        VersionButton.Content = folded
+            ? new IconView { Data = Ui.Icon("Icon.Info"), Width = 18, Height = 18 }
+            : $"Version {AppInfo.Version}";
+        ToolTip.SetTip(VersionButton, folded ? $"Über ThixClip – Version {AppInfo.Version}" : "Über ThixClip");
+        VersionButton.Margin = folded ? new Thickness(0) : new Thickness(8, 0, 0, 0);
+        VersionButton.HorizontalAlignment = folded ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+        Grid.SetColumnSpan(VersionButton, folded ? 2 : 1);
+
+        Grid.SetRow(SidebarToggle, folded ? 1 : 0);
+        Grid.SetColumn(SidebarToggle, folded ? 0 : 1);
+        Grid.SetColumnSpan(SidebarToggle, folded ? 2 : 1);
+        SidebarToggle.HorizontalAlignment = folded ? HorizontalAlignment.Center : HorizontalAlignment.Right;
+        SidebarToggle.Margin = folded ? new Thickness(0, 8, 0, 0) : new Thickness(0);
+        var action = folded ? "Menü ausklappen" : "Menü einklappen";
+        ToolTip.SetTip(SidebarToggle, $"{action} ({Ui.CommandKey.Name}+B)");
+        AutomationProperties.SetName(SidebarToggle, action);
+
+        ApplySidebarWidth(Bounds.Width > 0 ? Bounds.Width : Width);
+        RefreshCloudStatus();
+    }
+
+    private void ApplySidebarWidth(double windowWidth)
+    {
+        var width = IsSidebarCollapsed ? FoldedSidebarWidth : windowWidth < 900 ? 210 : 248;
+        BodyGrid.ColumnDefinitions[0].Width = new GridLength(width);
+        if (OperatingSystem.IsMacOS())
+        {
+            return; // the traffic lights keep the header as it is
+        }
+
+        HeaderGrid.ColumnDefinitions[0].Width = new GridLength(width);
+        HeaderGrid.Margin = new Thickness(IsSidebarCollapsed ? 18 : 22, 0, 12, 0);
     }
 
     private void RefreshCloudStatus()
@@ -499,7 +587,9 @@ public partial class MainWindow : ThemedWindow
             CloudDot.Fill = Ui.Brush(dot);
         }
 
-        ToolTip.SetTip(CloudStatus, status.LastSync is { } last ? $"{status.Message} (zuletzt {last:HH:mm:ss})" : status.Message);
+        var tip = status.LastSync is { } last ? $"{status.Message} (zuletzt {last:HH:mm:ss})" : status.Message;
+        ToolTip.SetTip(CloudStatus, IsSidebarCollapsed ? $"{CloudText.Text}\n{tip}" : tip);
+        AutomationProperties.SetName(CloudStatus, CloudText.Text);
     }
 
     /// <summary>Centred on the screen with the mouse (Windows) or the current one, never larger than its work area.</summary>
@@ -552,4 +642,6 @@ public partial class MainWindow : ThemedWindow
     private void OnCloudStatusClick(object? sender, RoutedEventArgs e) => ShowSettings(SettingsPage.CloudTab);
 
     private void OnVersionClick(object? sender, RoutedEventArgs e) => ShowAbout();
+
+    private void OnSidebarToggleClick(object? sender, RoutedEventArgs e) => ToggleSidebar();
 }

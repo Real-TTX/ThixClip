@@ -102,7 +102,7 @@ public sealed class PlatformTests : IDisposable
     }
 
     [Fact]
-    public void A_local_build_or_the_policy_stops_updates()
+    public async Task A_local_build_or_the_policy_stops_updates()
     {
         // CI builds are release or nightly builds; a local build never updates itself.
         if (AppInfo.IsLocalBuild)
@@ -112,7 +112,7 @@ public sealed class PlatformTests : IDisposable
 
         AccessPolicy.UsePolicyReaderForTests(name => name == "DisableUpdates");
         Assert.False(UpdateService.CanUpdate);
-        Assert.ThrowsAsync<BusinessException>(() => UpdateService.CheckAsync()).Wait();
+        await Assert.ThrowsAsync<BusinessException>(() => UpdateService.CheckAsync());
     }
 
     [Fact]

@@ -34,7 +34,8 @@ TLS proxy in front (Caddy, nginx, Traefik; `X-Forwarded-*` are honoured).
 - **Einrichten** (`/Account/Setup`, only on a fresh installation), **Anmelden** / Abmelden.
 - **Verlauf** (`/Clips`): the clips grouped by day; the toolbar above has the search (also in the text recognised in pictures; `/` jumps into it),
   Filter (Typ: Text, Link, Bild; Markiert: Favoriten, Angeheftet) and Sortieren (zuletzt / zuerst kopiert, newest or oldest first); the pager under the
-  list; the actions under it: **Neuer Eintrag** … gap … **Verlauf leeren** (keeps favourites and pinned clips, asks first). The star of a row toggles
+  list; the actions under it: **Neuer Eintrag** … gap … **Verlauf löschen …** (a dialog as in a browser: Letzte Stunde, 24 Stunden, 7 Tage, 4 Wochen or
+  Gesamte Zeit, the shortest chosen; what was last copied within the range goes on every device, favourites and pinned clips stay). The star of a row toggles
   the favourite. The list **updates itself** (`js/live.js` long-polls `/live/revision`) when a device, another browser or the retention changes something.
   The menu has the same views as entries (Bilder, Links, Favoriten, Angeheftet).
 - **Eintrag** (`/Clips/Edit?id=`): text clips have an editable text field (a change reaches all devices), image clips the picture (no text field),
@@ -69,7 +70,7 @@ an unknown or removed device gets **401**.
 | `GET /api/v1/clips/{syncId}/image`, `/thumbnail` | the PNG / a preview (longest side 320 px) |
 
 Sync rules:
-- Every change on the server (push, image upload, a change in the browser, the retention, "Verlauf leeren", a deleted account) takes the next number
+- Every change on the server (push, image upload, a change in the browser, the retention, "Verlauf löschen", a deleted account) takes the next number
   of **one** Postgres sequence `ClipRevision`, in a transaction that holds the account's advisory lock: within an account revisions are committed in
   order, so "everything above N" never misses a change. After the commit the long polls of the account are woken (in memory; one server instance).
 - A clip is identified by its `SyncId`. A push of a known SyncId applies only when its `updatedAt` is not older than the last change (last writer wins).

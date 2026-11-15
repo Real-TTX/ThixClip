@@ -23,6 +23,7 @@ const FROM_MATUI = {
   Private: 'eye-off', External: 'external', Login: 'login', Logout: 'logout', Sort: 'sort', Filter: 'filter',
   Device: 'monitor', Lock: 'lock', Warning: 'alert', User: 'user', Up: 'arrow-up', Down: 'arrow-down', Error: 'x-circle',
   Success: 'check-circle', Minus: 'minus', Plus: 'plus', Sun: 'sun', Moon: 'moon', Globe: 'globe', Layers: 'layers',
+  Sidebar: 'sidebar',
 };
 
 // Drawn for ThixClip in the same grid and line (Lucide style).

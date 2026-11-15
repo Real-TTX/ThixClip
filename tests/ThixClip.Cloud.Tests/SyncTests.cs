@@ -175,12 +175,32 @@ public sealed class SyncTests
         await SyncService.PushAsync(test.Db, pc, new PushRequest([
             Samples.Text("one"), Samples.Text("two", favorite: true), Samples.Text("three") with { IsPinned = true }, Samples.Text("four")]));
 
-        var removed = await ClipService.ClearHistoryAsync(test.NewContext(), new Actor(anna.Id, false));
+        var removed = await ClipService.ClearHistoryAsync(test.NewContext(), new Actor(anna.Id, false), ClearRange.All);
         Assert.Equal(2, removed);
         var left = await ClipService.ListAsync(test.NewContext(), new Actor(anna.Id, false), new ClipQuery(null, null, null, "copied", true, 1, 50));
         Assert.Equal(2, left.Items.Count);
         var tombstones = (await SyncService.ChangesAsync(test.NewContext(), pc, 0, 100)).Clips.Count(c => c.IsDeleted);
         Assert.Equal(2, tombstones);
+    }
+
+    [DbFact]
+    public async Task ClearingARangeTakesOnlyWhatWasCopiedWithinIt()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var anna = await test.AddUserAsync("anna");
+        var pc = Device(anna);
+        var now = DateTimeOffset.UtcNow;
+        await SyncService.PushAsync(test.Db, pc, new PushRequest([
+            Samples.Text("just now", now.AddMinutes(-5)), Samples.Text("favourite just now", now.AddMinutes(-5), favorite: true),
+            Samples.Text("this morning", now.AddHours(-5)), Samples.Text("last week", now.AddDays(-6)), Samples.Text("last month", now.AddDays(-29))]));
+        var actor = new Actor(anna.Id, false);
+
+        Assert.Equal(1, await ClipService.ClearHistoryAsync(test.NewContext(), actor, ClearRange.LastHour));
+        Assert.Equal(1, await ClipService.ClearHistoryAsync(test.NewContext(), actor, ClearRange.Last24Hours));
+        Assert.Equal(0, await ClipService.ClearHistoryAsync(test.NewContext(), actor, (ClearRange)42));
+        Assert.Equal(1, await ClipService.ClearHistoryAsync(test.NewContext(), actor, ClearRange.Last4Weeks));
+        var left = await ClipService.ListAsync(test.NewContext(), actor, new ClipQuery(null, null, null, "copied", true, 1, 50));
+        Assert.Equal(["favourite just now", "last month"], left.Items.Select(i => i.Preview));
     }
 
     [DbFact]

@@ -47,6 +47,9 @@ public sealed record AppSettings
 
     public double WindowHeight { get; init; } = 760;
 
+    /// <summary>The menu at the left of the main window is folded to its icons.</summary>
+    public bool IsSidebarCollapsed { get; init; }
+
     /// <summary>The welcome hint (shortcut, tray) has been shown.</summary>
     public bool WelcomeShown { get; init; }
 

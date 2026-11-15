@@ -24,6 +24,8 @@ public partial class HistoryPage : UserControl
     private ClipQuery _query = new();
     private bool _isRefreshing;
     private IDisposable? _messageTimer;
+    private bool _isShowingMessage;
+    private ClearRange _clearRange = ClearRange.LastHour;
 
     public HistoryPage()
     {
@@ -75,6 +77,9 @@ public partial class HistoryPage : UserControl
         });
 
         BuildKeyHints();
+        ToolTip.SetTip(ClearButton, OperatingSystem.IsMacOS()
+            ? "Was in einem Zeitraum kopiert wurde löschen (⌘⇧⌫)"
+            : "Was in einem Zeitraum kopiert wurde löschen (Strg+Umschalt+Entf)");
         Refresh();
         SizeChanged += (_, e) => AdaptToWidth(e.NewSize.Width);
     }
@@ -175,6 +180,7 @@ public partial class HistoryPage : UserControl
         }
 
         _query = query;
+        _isShowingMessage = false; // a new search or section shows its own count at once
         Refresh();
         SelectRow(0);
     }
@@ -297,11 +303,15 @@ public partial class HistoryPage : UserControl
             _ => "Verlauf",
         };
 
-        var countText = count == 1 ? "1 Eintrag" : $"{count:N0} Einträge";
-        SubtitleText.Text = _query.Search.Length > 0
-            ? $"{(count == 1 ? "1 Treffer" : $"{count:N0} Treffer")} für „{_query.Search}“"
-            : $"{countText}  ·  Durchsuchbar (inkl. Text aus Bildern)";
-        SubtitleText.Foreground = Ui.Brush("TextMutedBrush");
+        // A note (copied, deleted, an error) keeps its place until its time is up, also across the refresh it caused.
+        if (!_isShowingMessage)
+        {
+            var countText = count == 1 ? "1 Eintrag" : $"{count:N0} Einträge";
+            SubtitleText.Text = _query.Search.Length > 0
+                ? $"{(count == 1 ? "1 Treffer" : $"{count:N0} Treffer")} für „{_query.Search}“"
+                : $"{countText}  ·  Durchsuchbar (inkl. Text aus Bildern)";
+            SubtitleText.Foreground = Ui.Brush("TextMutedBrush");
+        }
 
         var empty = count == 0;
         EmptyState.IsVisible = empty;
@@ -390,8 +400,13 @@ public partial class HistoryPage : UserControl
     {
         SubtitleText.Text = message;
         SubtitleText.Foreground = Ui.Brush(isError ? "DangerBrush" : "SuccessBrush");
+        _isShowingMessage = true;
         _messageTimer?.Dispose();
-        _messageTimer = DispatcherTimer.RunOnce(() => UpdateTexts(_items.OfType<ClipRowViewModel>().Count()), TimeSpan.FromSeconds(2.5));
+        _messageTimer = DispatcherTimer.RunOnce(() =>
+        {
+            _isShowingMessage = false;
+            UpdateTexts(_items.OfType<ClipRowViewModel>().Count());
+        }, TimeSpan.FromSeconds(2.5));
     }
 
     private void Run(Action action)
@@ -440,21 +455,26 @@ public partial class HistoryPage : UserControl
         ShowMessage("Erkannter Text kopiert.");
     });
 
-    private async void OnClearClick(object? sender, RoutedEventArgs e)
+    /// <summary>
+    /// "Verlauf löschen" as in a browser (the button below the list, Ctrl/Cmd+Shift+Delete): the dialog asks for the range,
+    /// then what was copied within it goes. The last range is offered again while the app runs.
+    /// </summary>
+    public async Task AskToClearAsync()
     {
-        var keep = ClipService.Query(new ClipQuery()).Count(entry => entry.IsKeptForever);
-        var question = SettingsService.Get().Cloud.IsConnected
-            ? "Alle Einträge außer Favoriten und angehefteten werden gelöscht – auch auf deinen anderen Geräten und in der Cloud."
-            : "Alle Einträge außer Favoriten und angehefteten werden gelöscht.";
-        if (keep > 0)
+        if (Ui.WindowOf(this) is not { } owner || await ClearHistoryDialog.AskAsync(owner, _clearRange) is not { } range)
         {
-            question += $" {keep} {(keep == 1 ? "Eintrag bleibt" : "Einträge bleiben")} erhalten.";
+            return;
         }
 
-        if (await ConfirmDialog.AskAsync(Ui.WindowOf(this), "Verlauf leeren?", question, "Verlauf leeren", isDestructive: true))
+        _clearRange = range;
+        Run(() =>
         {
-            var count = ClipService.ClearHistory();
-            ShowMessage(count == 1 ? "1 Eintrag gelöscht." : $"{count} Einträge gelöscht.");
-        }
+            var count = ClipService.ClearHistory(range);
+            Refresh();
+            SelectRow(0);
+            ShowMessage(count == 1 ? "1 Eintrag gelöscht." : $"{count:N0} Einträge gelöscht.");
+        });
     }
+
+    private async void OnClearClick(object? sender, RoutedEventArgs e) => await AskToClearAsync();
 }

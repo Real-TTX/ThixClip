@@ -39,9 +39,6 @@
 .tc-star.is-on { color: var(--mat-accent-text); }
 .tc-star.is-on .mat-icon { fill: currentColor; }
 
-/* the danger action under the list sits in a form of its own: it keeps the place of a danger button (last, after the gap) */
-.mat-actions > .tc-inline-form { order: 3; margin: 0; }
-
 /* ---- One clip ---------------------------------------------------------------------------------------------------- */
 /* a button in the head of a card (copy the recognised text) stands at its right end */
 .mat-card__head > .mat-btn:last-child { margin-left: auto; }

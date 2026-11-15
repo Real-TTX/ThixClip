@@ -18,7 +18,7 @@
       <Grid x:Name="HeaderGrid" ColumnDefinitions="248,*,Auto,Auto" Margin="22,0,12,0">
         <StackPanel x:Name="Brand" Orientation="Horizontal" Spacing="11" VerticalAlignment="Center" IsHitTestVisible="False">
           <Image Source="/Assets/logo-64.png" Width="32" Height="32" RenderOptions.BitmapInterpolationMode="HighQuality" />
-          <TextBlock VerticalAlignment="Center" FontSize="19" FontWeight="SemiBold">
+          <TextBlock x:Name="BrandName" VerticalAlignment="Center" FontSize="19" FontWeight="SemiBold">
             <Run Text="Thix" /><Run Text="Clip" Foreground="{DynamicResource AccentBrush}" />
           </TextBlock>
         </StackPanel>
@@ -52,12 +52,12 @@
     <!-- ===== Body ===== -->
     <Grid Grid.Row="1" x:Name="BodyGrid" ColumnDefinitions="248,*">
 
-      <!-- Sidebar -->
-      <Border Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
+      <!-- Sidebar: full, or folded to its icons (Ctrl/Cmd+B, the button at its foot; MainWindow.ApplySidebar) -->
+      <Border x:Name="Sidebar" Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
         <DockPanel Margin="14,18,14,14">
           <StackPanel DockPanel.Dock="Bottom" Spacing="12">
             <!-- Retention (mockup "Speicherdauer") -->
-            <Border Theme="{StaticResource Card}" Padding="16,14">
+            <Border x:Name="RetentionCard" Theme="{StaticResource Card}" Padding="16,14">
               <StackPanel Spacing="10">
                 <TextBlock Text="Speicherdauer" FontWeight="SemiBold" FontSize="15" />
                 <TextBlock x:Name="RetentionDescription" Text="Wie lange sollen Zwischenablage-Einträge gespeichert werden?" Theme="{StaticResource MutedText}" />
@@ -78,9 +78,14 @@
               </StackPanel>
             </Button>
 
-            <!-- Version = about page (bottom left) -->
-            <Button x:Name="VersionButton" Theme="{StaticResource LinkButton}" Margin="8,0,0,0" Click="OnVersionClick"
-                    ToolTip.Tip="Über ThixClip" AutomationProperties.Name="Über ThixClip" />
+            <!-- Version = about page (bottom left); folded: an info icon above the button that unfolds -->
+            <Grid x:Name="SidebarFoot" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+              <Button x:Name="VersionButton" Theme="{StaticResource LinkButton}" Margin="8,0,0,0" VerticalAlignment="Center" Click="OnVersionClick"
+                      ToolTip.Tip="Über ThixClip" AutomationProperties.Name="Über ThixClip" />
+              <Button Grid.Column="1" x:Name="SidebarToggle" Theme="{StaticResource GhostButton}" VerticalAlignment="Center" Click="OnSidebarToggleClick">
+                <controls:IconView Data="{StaticResource Icon.Sidebar}" Width="18" Height="18" />
+              </Button>
+            </Grid>
           </StackPanel>
 
           <StackPanel>

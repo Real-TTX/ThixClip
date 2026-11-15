@@ -245,9 +245,20 @@ public static class ClipService
             return Outcome.Success();
         });
 
-    /// <summary>"Verlauf leeren": every clip goes except favourites and pinned ones. Answers how many went.</summary>
-    public static async Task<int> ClearHistoryAsync(AppDbContext db, Actor actor)
-        => await Revisions.ChangeAsync(db, actor.UserId, () => TombstoneManyAsync(db, actor.UserId, null, actor.UserId));
+    /// <summary>
+    /// "Verlauf löschen" as in a browser: every clip copied within the range goes (on every device too), except favourites and pinned ones. Answers how
+    /// many went; an unknown range deletes nothing.
+    /// </summary>
+    public static async Task<int> ClearHistoryAsync(AppDbContext db, Actor actor, ClearRange range)
+    {
+        if (!ClearRanges.IsValid(range))
+        {
+            return 0;
+        }
+
+        var copiedSince = ClearRanges.Start(range, DateTimeOffset.UtcNow)?.UtcDateTime;
+        return await Revisions.ChangeAsync(db, actor.UserId, () => TombstoneManyAsync(db, actor.UserId, null, actor.UserId, copiedSince));
+    }
 
     /// <summary>The PNG or the preview of an image clip of the actor; null when there is none.</summary>
     public static async Task<byte[]?> ImageAsync(AppDbContext db, Actor actor, long id, bool thumbnail)
@@ -305,7 +316,7 @@ public static class ClipService
             return 0;
         }
 
-        return await Revisions.ChangeAsync(db, userId, () => TombstoneManyAsync(db, userId, limit, null, ct), ct);
+        return await Revisions.ChangeAsync(db, userId, () => TombstoneManyAsync(db, userId, limit, null, ct: ct), ct);
     }
 
     /// <summary>The retention of every account (the housekeeping, every hour).</summary>
@@ -396,8 +407,12 @@ public static class ClipService
         }
     }
 
-    /// <summary>Tombstones every live clip of an account that is neither a favourite nor pinned (and, with a limit, was copied before it), in one statement.</summary>
-    private static async Task<int> TombstoneManyAsync(AppDbContext db, long userId, DateTime? copiedBefore, long? actingUserId, CancellationToken ct = default)
+    /// <summary>
+    /// Tombstones every live clip of an account that is neither a favourite nor pinned (with <paramref name="copiedBefore"/>: copied before it, the retention;
+    /// with <paramref name="copiedSince"/>: copied at or after it, "Verlauf löschen"), in one statement.
+    /// </summary>
+    private static async Task<int> TombstoneManyAsync(AppDbContext db, long userId, DateTime? copiedBefore, long? actingUserId, DateTime? copiedSince = null,
+        CancellationToken ct = default)
     {
         var sql = """
             UPDATE "ClipEntry" SET
@@ -411,6 +426,12 @@ public static class ClipService
         {
             sql += " AND \"CopiedDate\" < @p2";
             parameters.Add(DateTime.SpecifyKind(limit, DateTimeKind.Utc));
+        }
+
+        if (copiedSince is { } since)
+        {
+            sql += $" AND \"CopiedDate\" >= @p{parameters.Count}";
+            parameters.Add(DateTime.SpecifyKind(since, DateTimeKind.Utc));
         }
 
         var ids = await Revisions.ColumnAsync(db, sql + " RETURNING \"Id\"", ct, [.. parameters]);

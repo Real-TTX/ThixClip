@@ -104,8 +104,35 @@ public sealed class ClipServiceTests : IDisposable
         ClipService.ToggleFavorite(favorite.Id);
         ClipService.TogglePin(pinned.Id);
 
-        Assert.Equal(2, ClipService.ClearHistory());
+        Assert.Equal(2, ClipService.CountToClear(ClearRange.All));
+        Assert.Equal(2, ClipService.ClearHistory(ClearRange.All));
         Assert.Equal(["Angeheftet", "Favorit"], ClipService.Query(new ClipQuery()).Select(entry => entry.Text!).OrderBy(text => text));
+    }
+
+    [Fact]
+    public void Clearing_a_range_takes_only_what_was_copied_within_it_as_in_a_browser()
+    {
+        var now = DateTimeOffset.UtcNow;
+        foreach (var (text, age) in new[]
+                 {
+                     ("eben", TimeSpan.FromMinutes(5)), ("heute früh", TimeSpan.FromHours(5)), ("vorgestern", TimeSpan.FromDays(2)),
+                     ("letzte Woche", TimeSpan.FromDays(10)), ("Favorit von eben", TimeSpan.FromMinutes(1)),
+                 })
+        {
+            var entry = ClipService.CaptureText(text)!;
+            HistoryStore.Update(ClipService.Get(entry.Id)! with { CopiedDate = now - age });
+        }
+
+        ClipService.ResetForTests();
+        ClipService.Initialize();
+        ClipService.ToggleFavorite(ClipService.Query(new ClipQuery(Search: "Favorit")).Single().Id);
+
+        Assert.Equal([1, 2, 3, 4, 4], ClearRanges.Choices.Select(ClipService.CountToClear));
+        Assert.Equal(1, ClipService.ClearHistory(ClearRange.LastHour));
+        Assert.Equal(1, ClipService.ClearHistory(ClearRange.Last24Hours));
+        Assert.Equal(1, ClipService.ClearHistory(ClearRange.Last7Days));
+        Assert.Equal(["Favorit von eben", "letzte Woche"], ClipService.Query(new ClipQuery()).Select(entry => entry.Text!));
+        Assert.Throws<BusinessException>(() => ClipService.ClearHistory((ClearRange)42));
     }
 
     [Fact]
@@ -175,9 +202,9 @@ public sealed class ClipServiceTests : IDisposable
     }
 
     [Fact]
-    public void Settings_reject_unknown_retention_and_locked_configuration()
+    public async Task Settings_reject_unknown_retention_and_locked_configuration()
     {
-        Assert.ThrowsAsync<BusinessException>(() => SettingsService.SetRetentionAsync(12)).Wait();
+        await Assert.ThrowsAsync<BusinessException>(() => SettingsService.SetRetentionAsync(12));
         AccessPolicy.UsePolicyReaderForTests(name => name == "LockConfiguration");
         var error = Assert.Throws<BusinessException>(() => SettingsService.Update(settings => settings with { PasteOnSelect = false }));
         Assert.Contains("LockConfiguration", error.Message);

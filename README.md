@@ -12,6 +12,9 @@
 - **Texte, Links und Bilder** – mit **Texterkennung (OCR)**: die Suche findet auch Text in Screenshots
   (Windows-OCR bzw. Apple Vision, offline auf dem Gerät).
 - **Favoriten und Anheften**: bleiben dauerhaft, alles andere nach der **Speicherdauer** (1 Tag … unbegrenzt).
+- **Verlauf löschen wie im Browser**: letzte Stunde, 24 Stunden, 7 Tage, 4 Wochen oder alles – mit der Anzahl je
+  Zeitraum vorab; Favoriten und Angeheftetes bleiben, mit der Cloud verschwindet es auf allen Geräten.
+- **Einklappbares Menü**: die Seitenleiste lässt sich auf ihre Symbole einklappen und bleibt so.
 - **Vertrauliches bleibt draußen**: was Passwort-Manager als vertraulich markieren, wird nie aufgezeichnet.
 - **Tray / Menüleiste**, **Autostart**, **Setup** (Windows) bzw. **App-Bundle + DMG** (macOS), **OTA-Updates** mit
   optionalem **Full-Auto-Update**.
@@ -39,12 +42,18 @@
 | `Strg/⌘ + D` | Favorit |
 | `Strg/⌘ + P` | anheften |
 | `Strg + Entf` / `⌘ + ⌫` | löschen |
+| `Strg + Umschalt + Entf` / `⌘ + ⇧ + ⌫` | **Verlauf löschen**: Zeitraum mit `↑` `↓` wählen, `Enter` löscht, `Esc` bricht ab |
 | `Strg/⌘ + F` | Suche |
 | `Strg/⌘ + 1 / 2 / 3` | Verlauf / Bilder / Favoriten |
 | `Strg/⌘ + ,` | Einstellungen |
+| `Strg/⌘ + B` | Menü ein- / ausklappen |
 | `Esc` | Suche leeren, dann schließen (der Fokus geht zurück in die vorherige App) |
 
-Die Versionsnummer unten links öffnet „Über ThixClip“.
+Die Versionsnummer unten links öffnet „Über ThixClip“ (eingeklappt: das ⓘ-Symbol), der Knopf daneben klappt das Menü ein.
+
+| Menü eingeklappt | Verlauf löschen |
+|---|---|
+| ![Menü eingeklappt](docs/images/desktop-menu-folded.png) | ![Verlauf löschen](docs/images/desktop-clear-history.png) |
 
 ## Installation
 
