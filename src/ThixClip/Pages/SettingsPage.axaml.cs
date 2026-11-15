@@ -48,6 +48,7 @@ public partial class SettingsPage : UserControl
             }
         });
         PasteSwitch.IsCheckedChanged += (_, _) => Apply(() => SettingsService.Update(settings => settings with { PasteOnSelect = PasteSwitch.IsChecked == true }));
+        CloseAfterCopySwitch.IsCheckedChanged += (_, _) => Apply(() => SettingsService.Update(settings => settings with { CloseAfterCopy = CloseAfterCopySwitch.IsChecked == true }));
         HideSwitch.IsCheckedChanged += (_, _) => Apply(() => SettingsService.Update(settings => settings with { HideOnDeactivate = HideSwitch.IsChecked == true }));
         ThemeChoice.SelectionChanged += (_, _) => Apply(() => SettingsService.Update(settings => settings with { Theme = (ThemeChoice)Math.Max(0, ThemeChoice.SelectedIndex) }));
         RetentionChoice.SelectionChanged += async (_, _) =>
@@ -96,9 +97,10 @@ public partial class SettingsPage : UserControl
             AutostartSwitch.IsEnabled = AutostartService.IsSupported && !locked;
             PasteSwitch.IsChecked = settings.PasteOnSelect;
             HideSwitch.IsChecked = settings.HideOnDeactivate;
+            CloseAfterCopySwitch.IsChecked = settings.CloseAfterCopy;
             ThemeChoice.SelectedIndex = (int)settings.Theme;
             RetentionChoice.SelectedIndex = SyncContract.RetentionChoices.ToList().IndexOf(settings.RetentionDays);
-            foreach (var control in new Control[] { PasteSwitch, HideSwitch, ThemeChoice, RetentionChoice, ImagesSwitch, OcrSwitch, ConfidentialSwitch, CheckUpdatesSwitch, AutoInstallSwitch })
+            foreach (var control in new Control[] { PasteSwitch, CloseAfterCopySwitch, HideSwitch, ThemeChoice, RetentionChoice, ImagesSwitch, OcrSwitch, ConfidentialSwitch, CheckUpdatesSwitch, AutoInstallSwitch })
             {
                 control.IsEnabled = !locked;
             }

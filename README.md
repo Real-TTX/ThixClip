@@ -45,7 +45,7 @@
 | `↑` `↓` `Bild↑` `Bild↓`, `Strg/⌘ + Pos1/Ende` | Eintrag wählen |
 | `Enter` / Doppelklick | in die vorherige App **einfügen** (oder nur kopieren, siehe Einstellungen) |
 | `Alt + 1` … `Alt + 9` | den n-ten Eintrag sofort einfügen |
-| `Strg/⌘ + C` | nur kopieren |
+| `Strg/⌘ + C` | kopieren und ThixClip schließen (abschaltbar: Einstellungen › „Nach dem Kopieren schließen“) |
 | `Strg/⌘ + D` | Favorit |
 | `Strg/⌘ + P` | anheften |
 | `Entf` (Suche leer), `Strg + Entf` / `⌘ + ⌫` | löschen – der nächste Eintrag rückt nach und ist gewählt |
@@ -59,6 +59,7 @@
 | `Esc` | Suche leeren, dann schließen (der Fokus geht zurück in die vorherige App) |
 
 Die Versionsnummer unten links öffnet „Über ThixClip“ (eingeklappt: das ⓘ-Symbol), der Knopf daneben klappt das Menü ein.
+Liegt ein Update bereit, steht es an der Versionsnummer; „Über ThixClip“ führt mit „Update installieren …“ zu Einstellungen › Updates.
 
 | Menü eingeklappt | Verlauf löschen |
 |---|---|

@@ -73,8 +73,9 @@ src/ThixClip          (Avalonia app)
                       foot, remembered in AppSettings.IsSidebarCollapsed), page host; ALL keyboard handling (OnPreviewKeyDown)
   Pages/              HistoryPage (title and filters in one line; list grouped by day + detail pane with ONE row of icon buttons
                       Einfügen, Kopieren, Öffnen, Anheften, Favorit … Löschen; Ctrl/Cmd+click or +O opens; Delete takes the chosen
-                      entry and keeps the focus; adaptive below 820 px), ClipRowViewModel, SettingsPage
-                      (tabs Allgemein | Aufzeichnung | Cloud | Updates | Erweitert), AboutPage
+                      entry and keeps the focus; count / notes bottom right; the chosen row is scrolled into view only after
+                      layout (BringIntoView), else the virtualizing panel leaves a growing gap; adaptive below 820 px), ClipRowViewModel, SettingsPage
+                      (tabs Allgemein | Aufzeichnung | Cloud | Updates | Erweitert), AboutPage (update card -> Einstellungen › Updates)
   Controls/           ONE code base per control: IconView (line icons), IconLabel, ActionBar (left, positive -> negative, Separated
                       gap before delete), SettingRow, FormField (shows BusinessException.Field), InfoBar, KeyCaps, HotkeyRecorder
   Themes/             Theme.axaml (light + dark theme dictionaries, ControlThemes), Icons.axaml (generated)

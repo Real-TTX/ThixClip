@@ -19,6 +19,20 @@
                 <SelectableTextBlock x:Name="VersionText" FontSize="13" />
               </StackPanel>
             </StackPanel>
+            <!-- Updates: the state of the last check and the way to Einstellungen › Updates -->
+            <Border Theme="{StaticResource SubtleCard}">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <controls:IconView x:Name="UpdateIcon" Data="{StaticResource Icon.Download}" Width="20" Height="20" Margin="0,0,12,0"
+                                   Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                  <TextBlock x:Name="UpdateTitle" FontWeight="SemiBold" />
+                  <TextBlock x:Name="UpdateText" Theme="{StaticResource MutedText}" TextWrapping="Wrap" />
+                </StackPanel>
+                <Button Grid.Column="2" x:Name="UpdateButton" Click="OnUpdateClick" Margin="12,0,0,0" VerticalAlignment="Center">
+                  <controls:IconLabel x:Name="UpdateLabel" Icon="{StaticResource Icon.Download}" Text="Nach Updates suchen …" />
+                </Button>
+              </Grid>
+            </Border>
             <TextBlock TextWrapping="Wrap" LineHeight="21"
                        Text="ThixClip merkt sich, was du kopierst – Texte, Links und Bilder samt erkanntem Text – und holt es mit einem Tastenkürzel zurück. Mit ThixClip.Cloud ist der Verlauf auf all deinen Computern gleich und auch im Browser erreichbar." />
             <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">

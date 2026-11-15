@@ -309,6 +309,72 @@ public sealed class UiTests
     }
 
     [AvaloniaFact]
+    public void Copying_again_and_again_keeps_the_list_at_the_top()
+    {
+        using var data = new TestData();
+        SampleHistory.Create();
+        SettingsService.Update(settings => settings with { CloseAfterCopy = false });
+        var window = Open();
+        var history = (HistoryPage)window.PageHost.Content!;
+        var top = FirstItemTop(history);
+        for (var round = 0; round < 6; round++)
+        {
+            history.MoveSelection(3);
+            Settle(window);
+            window.KeyPressQwerty(PhysicalKey.C, CommandModifier);
+            Settle(window);
+            ClipboardMonitor.CheckOnce(); // what the monitor does: the copied entry moves to the top
+            Settle(window);
+            Assert.True(Math.Abs(FirstItemTop(history) - top) < 1, $"round {round}: {top} -> {FirstItemTop(history)}");
+        }
+
+        window.Close();
+    }
+
+    private static double FirstItemTop(HistoryPage history)
+    {
+        var first = history.ClipList.ContainerFromIndex(0);
+        return first is null ? double.NaN : first.TranslatePoint(new Point(0, 0), history.ClipList)!.Value.Y;
+    }
+
+    [AvaloniaFact]
+    public void Copying_closes_the_window_when_the_settings_say_so()
+    {
+        using var data = new TestData();
+        SampleHistory.Create();
+        var window = Open();
+        Assert.True(SettingsService.Get().CloseAfterCopy, "on by default");
+        window.KeyPressQwerty(PhysicalKey.C, CommandModifier);
+        Settle(window);
+        Assert.False(window.IsVisible);
+        Assert.Equal("Produktmeeting morgen um 10 Uhr\nim Konferenzraum.", data.Clipboard.Read().Text);
+
+        SettingsService.Update(settings => settings with { CloseAfterCopy = false });
+        window.ShowFromTray(rememberForeground: false);
+        Settle(window);
+        window.KeyPressQwerty(PhysicalKey.C, CommandModifier);
+        Settle(window);
+        Assert.True(window.IsVisible);
+        Assert.Equal("In die Zwischenablage kopiert.", ((HistoryPage)window.PageHost.Content!).SubtitleText.Text);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void The_about_page_leads_to_the_updates()
+    {
+        using var data = new TestData();
+        var window = Open();
+        window.VersionButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Settle(window);
+        var about = Assert.IsType<AboutPage>(window.PageHost.Content);
+        Assert.Equal("Nach Updates suchen …", about.UpdateLabel.Text);
+        about.UpdateButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Settle(window);
+        Assert.IsType<SettingsPage>(window.PageHost.Content);
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void A_narrow_window_keeps_the_list()
     {
         using var data = new TestData();

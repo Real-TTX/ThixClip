@@ -21,6 +21,9 @@ public sealed record AppSettings
     /// <summary>The window hides as soon as another app comes to the front (like a picker).</summary>
     public bool HideOnDeactivate { get; init; } = true;
 
+    /// <summary>Copying an entry (Ctrl/Cmd+C, "Kopieren") closes the window and goes back to the app in front.</summary>
+    public bool CloseAfterCopy { get; init; } = true;
+
     /// <summary>Content marked as confidential by password managers is not recorded.</summary>
     public bool IgnoreConfidential { get; init; } = true;
 

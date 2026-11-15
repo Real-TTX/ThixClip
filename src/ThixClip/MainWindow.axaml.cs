@@ -59,6 +59,13 @@ public partial class MainWindow : ThemedWindow
         }
 
         _history.PasteRequested += async (_, row) => await PasteAsync(row);
+        _history.Copied += (_, _) =>
+        {
+            if (SettingsService.Get().CloseAfterCopy)
+            {
+                HideWindow(returnToPrevious: true);
+            }
+        };
         PageHost.Content = _history;
         NavHistory.IsChecked = true;
 
@@ -96,6 +103,7 @@ public partial class MainWindow : ThemedWindow
         };
 
         RecordingService.Changed += (_, _) => Ui.Post(RefreshPause);
+        UpdateCoordinator.Checked += (_, _) => Ui.Post(ApplySidebar);
         RefreshPause();
 
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
@@ -550,10 +558,25 @@ public partial class MainWindow : ThemedWindow
         CloudStatus.HorizontalContentAlignment = folded ? HorizontalAlignment.Center : HorizontalAlignment.Left;
         BrandName.IsVisible = !folded || OperatingSystem.IsMacOS();
 
+        // An update waiting: the version says so (a dot when folded); a click shows "Über ThixClip" with the way to install it.
+        var update = UpdateService.LastResult is { IsUpdateAvailable: true, Manifest: { } manifest } ? manifest.Version : null;
         VersionButton.Content = folded
-            ? new IconView { Data = Ui.Icon("Icon.Info"), Width = 18, Height = 18 }
-            : $"Version {AppInfo.Version}";
-        ToolTip.SetTip(VersionButton, folded ? $"Über ThixClip – Version {AppInfo.Version}" : "Über ThixClip");
+            ? new Panel
+            {
+                Children =
+                {
+                    new IconView { Data = Ui.Icon(update is null ? "Icon.Info" : "Icon.Download"), Width = 18, Height = 18 },
+                    new Avalonia.Controls.Shapes.Ellipse
+                    {
+                        Width = 7, Height = 7, Fill = Ui.Brush("AccentBrush"), IsVisible = update is not null,
+                        HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, -2, -3, 0),
+                    },
+                },
+            }
+            : update is null ? $"Version {AppInfo.Version}" : $"Version {AppInfo.Version}  ·  Update";
+        ToolTip.SetTip(VersionButton, update is not null
+            ? $"Update auf {update} verfügbar – Über ThixClip"
+            : folded ? $"Über ThixClip – Version {AppInfo.Version}" : "Über ThixClip");
         VersionButton.Margin = folded ? new Thickness(0) : new Thickness(8, 0, 0, 0);
         VersionButton.HorizontalAlignment = folded ? HorizontalAlignment.Center : HorizontalAlignment.Left;
         Grid.SetColumnSpan(VersionButton, folded ? 2 : 1);

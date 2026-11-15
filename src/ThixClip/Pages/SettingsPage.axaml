@@ -36,6 +36,9 @@
               <Button x:Name="AccessibilityButton" IsVisible="False" Click="OnAccessibilityClick" Margin="0,0,0,8">
                 <controls:IconLabel Icon="{StaticResource Icon.Lock}" Text="Zugriff erlauben …" />
               </Button>
+              <controls:SettingRow Title="Nach dem Kopieren schließen" Description="Strg/⌘ + C oder „Kopieren“ legt den Eintrag in die Zwischenablage und schließt ThixClip.">
+                <ToggleSwitch x:Name="CloseAfterCopySwitch" OnContent="" OffContent="" AutomationProperties.Name="Nach dem Kopieren schließen" />
+              </controls:SettingRow>
               <controls:SettingRow Title="Ausblenden, wenn eine andere App aktiv wird" Description="Wie ein Auswahlfenster: ein Klick daneben schließt ThixClip.">
                 <ToggleSwitch x:Name="HideSwitch" OnContent="" OffContent="" AutomationProperties.Name="Ausblenden, wenn eine andere App aktiv wird" />
               </controls:SettingRow>

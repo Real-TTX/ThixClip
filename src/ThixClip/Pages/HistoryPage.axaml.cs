@@ -110,8 +110,11 @@ public partial class HistoryPage : UserControl
         var detailWidth = width < 820 ? 0 : width < 1040 ? 330 : 400;
         Columns.ColumnDefinitions[1].Width = new Avalonia.Controls.GridLength(detailWidth);
         DetailPane.IsVisible = detailWidth > 0;
-        KeyHints.IsVisible = width - detailWidth > 700;
+        KeyHints.IsVisible = width - detailWidth > 820;
     }
+
+    /// <summary>An entry went to the clipboard (Ctrl/Cmd+C, "Kopieren"): the main window closes when the settings say so.</summary>
+    public event EventHandler? Copied;
 
     /// <summary>Enter, double click, "Einfügen": the main window hides and pastes.</summary>
     public event EventHandler<ClipRowViewModel>? PasteRequested;
@@ -172,6 +175,7 @@ public partial class HistoryPage : UserControl
         {
             ClipService.CopyToClipboard(RequireSelected().Id);
             ShowMessage("In die Zwischenablage kopiert.");
+            Copied?.Invoke(this, EventArgs.Empty);
         });
     }
 
@@ -362,7 +366,7 @@ public partial class HistoryPage : UserControl
             var countText = count == 1 ? "1 Eintrag" : $"{count:N0} Einträge";
             SubtitleText.Text = _query.Search.Length > 0
                 ? $"{(count == 1 ? "1 Treffer" : $"{count:N0} Treffer")} für „{_query.Search}“"
-                : $"{countText}  ·  Durchsuchbar (inkl. Text aus Bildern)";
+                : countText;
             SubtitleText.Foreground = Ui.Brush("TextMutedBrush");
         }
 
@@ -398,9 +402,21 @@ public partial class HistoryPage : UserControl
         NoSelection.IsVisible = row is null;
         if (row is not null)
         {
-            ClipList.ScrollIntoView(row);
+            BringIntoView(row);
         }
     }
+
+    /// <summary>
+    /// Scrolls the chosen row into view once the list has measured its new items. Asked right after the items were swapped,
+    /// the virtualizing panel goes by estimated heights and leaves a gap above the first row that grows with every refresh.
+    /// </summary>
+    private void BringIntoView(ClipRowViewModel row) => Dispatcher.UIThread.Post(() =>
+    {
+        if (ReferenceEquals(Selected, row))
+        {
+            ClipList.ScrollIntoView(row);
+        }
+    }, DispatcherPriority.Loaded);
 
     private void SelectRow(int index)
     {
@@ -414,7 +430,7 @@ public partial class HistoryPage : UserControl
 
         var row = rows[Math.Clamp(index, 0, rows.Count - 1)];
         ClipList.SelectedItem = row;
-        ClipList.ScrollIntoView(row);
+        BringIntoView(row);
         DetailScroller.ScrollToHome();
     }
 
