@@ -1,19 +1,21 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mat="using:MatDesktop"
              xmlns:controls="using:ThixClip.Controls"
              xmlns:pages="using:ThixClip.Pages"
              x:Class="ThixClip.Pages.HistoryPage">
   <!--
     The history (mockup "Verlauf"): the list with its toolbar at the left, the chosen entry at the right.
     Keyboard first: the search field in the header keeps the focus, arrow keys move here, Enter pastes (MainWindow).
+    Colours, sizes and looks are MatDesktop's resources (DESK-02); the chosen row is a tint with the accent as its line (COLOR-08).
   -->
   <Grid x:Name="Columns" ColumnDefinitions="*,400">
     <!-- ===== List ===== -->
-    <Border Background="{DynamicResource SurfaceBrush}">
+    <Border Background="{DynamicResource Mat.Surface}">
       <DockPanel Margin="26,22,22,16">
         <!-- Title and toolbar (filter, sort) in one line -->
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
-          <TextBlock x:Name="TitleText" Text="Verlauf" Theme="{StaticResource PageTitle}" VerticalAlignment="Center" />
+          <TextBlock x:Name="TitleText" Text="Verlauf" Theme="{StaticResource MatText.PageTitle}" VerticalAlignment="Center" />
           <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
             <ComboBox x:Name="KindFilter" MinWidth="128" AutomationProperties.Name="Typ" ToolTip.Tip="Nach Typ filtern">
               <ComboBoxItem Content="Alle Typen" />
@@ -30,18 +32,18 @@
 
         <!-- Below the list: actions (left, positive to negative, delete separated), the keys, and at the right the count or a note -->
         <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
-          <TextBlock x:Name="SubtitleText" DockPanel.Dock="Right" Theme="{StaticResource MutedText}" VerticalAlignment="Center" Margin="16,0,0,0"
+          <TextBlock x:Name="SubtitleText" DockPanel.Dock="Right" Theme="{StaticResource MatText.Muted}" VerticalAlignment="Center" Margin="16,0,0,0"
                      TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="320" />
           <controls:ActionBar DockPanel.Dock="Left" VerticalAlignment="Center">
-            <Button x:Name="ClearButton" Theme="{StaticResource DangerButton}" controls:ActionBar.Separated="True" Click="OnClearClick">
-              <controls:IconLabel Icon="{StaticResource Icon.Delete}" Text="Verlauf löschen …" />
+            <Button x:Name="ClearButton" Theme="{StaticResource MatButton.Danger}" controls:ActionBar.Separated="True" Click="OnClearClick">
+              <controls:IconLabel Icon="trash" Text="Verlauf löschen …" />
             </Button>
           </controls:ActionBar>
           <WrapPanel x:Name="KeyHints" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0" />
         </DockPanel>
 
         <Panel>
-          <ListBox x:Name="ClipList" Theme="{StaticResource ClipList}" ItemContainerTheme="{StaticResource ClipRow}" SelectionMode="Single"
+          <ListBox x:Name="ClipList" Theme="{StaticResource ThixClip.ClipList}" ItemContainerTheme="{StaticResource ThixClip.ClipRow}" SelectionMode="Single"
                    AutomationProperties.Name="Einträge" Padding="0,0,14,0" Margin="0,0,-14,0">
             <ListBox.ItemsPanel>
               <ItemsPanelTemplate>
@@ -51,48 +53,49 @@
             <ListBox.DataTemplates>
               <DataTemplate DataType="pages:GroupHeaderViewModel">
                 <Grid ColumnDefinitions="*,Auto" Margin="2,14,2,10" Classes.first="{Binding IsFirst}">
-                  <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" />
-                  <TextBlock Grid.Column="1" Text="{Binding CountText}" Theme="{StaticResource MutedText}" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Title}" FontSize="{DynamicResource Mat.FontSize}" FontWeight="SemiBold" />
+                  <TextBlock Grid.Column="1" Text="{Binding CountText}" Theme="{StaticResource MatText.Muted}" VerticalAlignment="Center" />
                 </Grid>
               </DataTemplate>
               <DataTemplate DataType="pages:ClipRowViewModel">
-                <Border Classes="row" CornerRadius="12" BorderThickness="1" Padding="14,11,8,11">
+                <Border Classes="row" CornerRadius="{DynamicResource Mat.RadiusLg}" BorderThickness="1" Padding="14,11,8,11">
                   <Grid ColumnDefinitions="Auto,*,Auto,Auto">
                     <!-- Picture of an image, icon of a text or link -->
-                    <Border IsVisible="{Binding IsImage}" Width="136" Height="76" CornerRadius="8" ClipToBounds="True" Margin="0,0,14,0"
-                            Background="{DynamicResource SubtleBrush}" VerticalAlignment="Center">
+                    <Border IsVisible="{Binding IsImage}" Width="136" Height="76" CornerRadius="{DynamicResource Mat.Radius}" ClipToBounds="True" Margin="0,0,14,0"
+                            Background="{DynamicResource Mat.Surface2}" VerticalAlignment="Center">
                       <Panel>
                         <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="HighQuality" />
-                        <controls:IconView Data="{StaticResource Icon.Download}" IsVisible="{Binding IsImagePending}" Width="20" Height="20"
-                                           Foreground="{DynamicResource TextFaintBrush}" HorizontalAlignment="Center" ToolTip.Tip="Wird aus der Cloud geladen" />
+                        <mat:MatIcon Icon="download" IsVisible="{Binding IsImagePending}" Size="20"
+                                     Foreground="{DynamicResource Mat.TextFaint}" HorizontalAlignment="Center" ToolTip.Tip="Wird aus der Cloud geladen" />
                       </Panel>
                     </Border>
-                    <Border IsVisible="{Binding IsText}" Width="36" Height="36" Margin="2,0,14,0" CornerRadius="9" VerticalAlignment="Center"
-                            Background="{DynamicResource SubtleBrush}">
-                      <controls:IconView Data="{Binding KindIcon}" Width="19" Height="19" HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
+                    <Border IsVisible="{Binding IsText}" Width="36" Height="36" Margin="2,0,14,0" CornerRadius="{DynamicResource Mat.Radius}" VerticalAlignment="Center"
+                            Background="{DynamicResource Mat.Surface2}">
+                      <mat:MatIcon Icon="{Binding KindIcon}" Size="18" HorizontalAlignment="Center" Foreground="{DynamicResource Mat.TextMuted}" />
                     </Border>
 
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="5">
-                      <Border Theme="{StaticResource Badge}" IsVisible="{Binding HasOcrBadge}" HorizontalAlignment="Left">
+                      <Border IsVisible="{Binding HasOcrBadge}" HorizontalAlignment="Left" Background="{DynamicResource Mat.AccentSoft}"
+                              CornerRadius="{DynamicResource Mat.RadiusSm}" Padding="6,1"
+                              TextElement.Foreground="{DynamicResource Mat.AccentText}" TextElement.FontSize="{DynamicResource Mat.FontSizeXs}" TextElement.FontWeight="SemiBold">
                         <StackPanel Orientation="Horizontal" Spacing="4">
-                          <controls:IconView Data="{StaticResource Icon.Sparkles}" Width="12" Height="12" Foreground="{DynamicResource AccentTextBrush}" />
+                          <mat:MatIcon Icon="sparkles" Size="12" />
                           <TextBlock Text="OCR" />
                         </StackPanel>
                       </Border>
-                      <TextBlock Text="{Binding PreviewText}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" FontSize="14.5" LineHeight="21" />
+                      <TextBlock Text="{Binding PreviewText}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" LineHeight="21" />
                     </StackPanel>
 
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,4,0" Spacing="6">
-                      <controls:IconView Data="{StaticResource Icon.Pin}" IsVisible="{Binding IsPinned}" Width="14" Height="14"
-                                         Foreground="{DynamicResource AccentBrush}" ToolTip.Tip="Angeheftet" />
-                      <TextBlock Text="{Binding TimeText}" Theme="{StaticResource MutedText}" TextWrapping="NoWrap" VerticalAlignment="Center" />
+                      <mat:MatIcon Icon="pin" IsVisible="{Binding IsPinned}" Size="14" Foreground="{DynamicResource Mat.AccentText}" ToolTip.Tip="Angeheftet" />
+                      <TextBlock Text="{Binding TimeText}" Theme="{StaticResource MatText.Muted}" TextWrapping="NoWrap" VerticalAlignment="Center" />
                     </StackPanel>
-                    <Button Grid.Column="3" Theme="{StaticResource GhostButton}" Click="OnStarClick" Focusable="False" VerticalAlignment="Center"
+                    <Button Grid.Column="3" Theme="{StaticResource MatButton.Icon}" Click="OnStarClick" Focusable="False" VerticalAlignment="Center"
                             ToolTip.Tip="Favorit" AutomationProperties.Name="Favorit">
                       <Panel>
-                        <controls:IconView Data="{StaticResource Icon.Star}" Width="19" Height="19" IsVisible="{Binding !IsFavorite}" />
-                        <controls:IconView Data="{StaticResource Icon.Star}" Width="19" Height="19" IsVisible="{Binding IsFavorite}" IsFilled="True"
-                                           Foreground="{DynamicResource AccentBrush}" />
+                        <controls:IconLabel Icon="star" IconSize="18" IsVisible="{Binding !IsFavorite}" />
+                        <controls:IconLabel Icon="star" IconSize="18" IsIconFilled="True" IsVisible="{Binding IsFavorite}"
+                                            TextElement.Foreground="{DynamicResource Mat.AccentText}" />
                       </Panel>
                     </Button>
                   </Grid>
@@ -103,73 +106,72 @@
 
           <!-- Empty list -->
           <StackPanel x:Name="EmptyState" IsVisible="False" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="380" Spacing="10">
-            <Border Width="64" Height="64" CornerRadius="18" Background="{DynamicResource AccentSoftBrush}" HorizontalAlignment="Center">
-              <controls:IconView x:Name="EmptyIcon" Data="{StaticResource Icon.Clipboard}" Width="30" Height="30" Foreground="{DynamicResource AccentBrush}"
-                                 HorizontalAlignment="Center" />
+            <Border Width="64" Height="64" CornerRadius="{DynamicResource Mat.RadiusXl}" Background="{DynamicResource Mat.AccentSoft}" HorizontalAlignment="Center">
+              <mat:MatIcon x:Name="EmptyIcon" Icon="clipboard" Size="30" Foreground="{DynamicResource Mat.AccentText}" HorizontalAlignment="Center" />
             </Border>
-            <TextBlock x:Name="EmptyTitle" Theme="{StaticResource SectionTitle}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
-            <TextBlock x:Name="EmptyText" Theme="{StaticResource MutedText}" HorizontalAlignment="Center" TextAlignment="Center" />
+            <TextBlock x:Name="EmptyTitle" Theme="{StaticResource MatText.SectionTitle}" HorizontalAlignment="Center" TextAlignment="Center" />
+            <TextBlock x:Name="EmptyText" Theme="{StaticResource MatText.Muted}" HorizontalAlignment="Center" TextAlignment="Center" />
           </StackPanel>
         </Panel>
       </DockPanel>
     </Border>
 
     <!-- ===== The chosen entry ===== -->
-    <Border Grid.Column="1" x:Name="DetailPane" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0">
+    <Border Grid.Column="1" x:Name="DetailPane" Background="{DynamicResource Mat.Surface}" BorderBrush="{DynamicResource Mat.Border}" BorderThickness="1,0,0,0">
       <Panel>
         <ScrollViewer x:Name="DetailScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <StackPanel x:Name="Detail" Margin="20,22,22,22" Spacing="16">
             <!-- Preview; Ctrl/Cmd+click (an image: a click) opens it in the viewer -->
-            <Border x:Name="PreviewFrame" CornerRadius="14" ClipToBounds="True" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                    Background="{DynamicResource SubtleBrush}" MinHeight="120">
+            <Border x:Name="PreviewFrame" CornerRadius="{DynamicResource Mat.RadiusLg}" ClipToBounds="True" BorderBrush="{DynamicResource Mat.Border}" BorderThickness="1"
+                    Background="{DynamicResource Mat.Surface2}" MinHeight="120">
               <Panel>
                 <Image Source="{Binding Preview}" IsVisible="{Binding IsImage}" Stretch="Uniform" MaxHeight="300"
                        RenderOptions.BitmapInterpolationMode="HighQuality" />
-                <TextBlock IsVisible="{Binding IsImagePending}" Text="Das Bild wird aus der Cloud geladen …" Theme="{StaticResource MutedText}"
+                <TextBlock IsVisible="{Binding IsImagePending}" Text="Das Bild wird aus der Cloud geladen …" Theme="{StaticResource MatText.Muted}"
                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                 <ScrollViewer IsVisible="{Binding IsText}" MaxHeight="300" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                  <SelectableTextBlock Text="{Binding FullText}" TextWrapping="Wrap" Margin="16,14" FontSize="14" LineHeight="21" />
+                  <SelectableTextBlock Text="{Binding FullText}" TextWrapping="Wrap" Margin="16,14" LineHeight="21" />
                 </ScrollViewer>
               </Panel>
             </Border>
 
             <!-- Actions in one line, icons only (the pane is narrow): positive to negative, delete with a gap -->
             <controls:ActionBar x:Name="DetailActions" Separation="16">
-              <Button x:Name="PasteButton" Classes="icon" Theme="{StaticResource PrimaryButton}" Click="OnPasteClick" AutomationProperties.Name="Einfügen">
-                <controls:IconLabel Icon="{StaticResource Icon.Paste}" />
+              <Button x:Name="PasteButton" Classes="icon" Theme="{StaticResource MatButton.Primary}" Click="OnPasteClick" AutomationProperties.Name="Einfügen">
+                <controls:IconLabel Icon="paste" />
               </Button>
               <Button x:Name="CopyButton" Classes="icon" Click="OnCopyClick" AutomationProperties.Name="Kopieren">
-                <controls:IconLabel Icon="{StaticResource Icon.Copy}" />
+                <controls:IconLabel Icon="copy" />
               </Button>
               <Button x:Name="OpenButton" Classes="icon" Click="OnOpenClick" ToolTip.Tip="{Binding OpenTip}" AutomationProperties.Name="{Binding OpenName}">
-                <controls:IconLabel Icon="{StaticResource Icon.External}" />
+                <controls:IconLabel Icon="external" />
               </Button>
               <Button x:Name="PinButton" Classes="icon" Click="OnPinClick" ToolTip.Tip="{Binding PinTip}" AutomationProperties.Name="{Binding PinText}">
-                <controls:IconLabel Icon="{StaticResource Icon.Pin}" IsIconFilled="{Binding IsPinned}" />
+                <controls:IconLabel Icon="pin" IsIconFilled="{Binding IsPinned}" />
               </Button>
               <Button x:Name="FavoriteButton" Classes="icon" Click="OnFavoriteClick" ToolTip.Tip="{Binding FavoriteTip}" AutomationProperties.Name="{Binding FavoriteText}">
-                <controls:IconLabel Icon="{StaticResource Icon.Star}" IsIconFilled="{Binding IsFavorite}" />
+                <controls:IconLabel Icon="star" IsIconFilled="{Binding IsFavorite}" />
               </Button>
-              <Button x:Name="DeleteButton" Classes="icon" Theme="{StaticResource DangerButton}" controls:ActionBar.Separated="True" Click="OnDeleteClick"
+              <Button x:Name="DeleteButton" Classes="icon" Theme="{StaticResource MatButton.Danger}" controls:ActionBar.Separated="True" Click="OnDeleteClick"
                       AutomationProperties.Name="Löschen">
-                <controls:IconLabel Icon="{StaticResource Icon.Delete}" />
+                <controls:IconLabel Icon="trash" />
               </Button>
             </controls:ActionBar>
 
             <!-- Recognised text of an image -->
             <StackPanel IsVisible="{Binding ShowOcrSection}" Spacing="10">
-              <Border Height="1" Background="{DynamicResource BorderBrush}" />
+              <Border Height="1" Background="{DynamicResource Mat.Border}" />
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <controls:IconView Data="{StaticResource Icon.Sparkles}" Width="18" Height="18" Foreground="{DynamicResource AccentBrush}" />
-                <TextBlock Text="Erkannter Text (OCR)" FontWeight="SemiBold" FontSize="15" />
+                <mat:MatIcon Icon="sparkles" Size="18" Foreground="{DynamicResource Mat.AccentText}" />
+                <TextBlock Text="Erkannter Text (OCR)" FontWeight="SemiBold" />
               </StackPanel>
-              <Border Theme="{StaticResource SubtleCard}">
+              <Border Background="{DynamicResource Mat.Surface2}" CornerRadius="{DynamicResource Mat.RadiusLg}" Padding="14,12">
                 <Grid ColumnDefinitions="*,Auto">
-                  <SelectableTextBlock Text="{Binding OcrText}" IsVisible="{Binding HasOcrText}" TextWrapping="Wrap" FontSize="14" LineHeight="21" />
-                  <TextBlock Text="{Binding OcrPlaceholder}" IsVisible="{Binding !HasOcrText}" Theme="{StaticResource MutedText}" />
-                  <Button Grid.Column="1" Theme="{StaticResource GhostButton}" VerticalAlignment="Top" Click="OnCopyOcrClick" IsVisible="{Binding HasOcrText}"
+                  <SelectableTextBlock Text="{Binding OcrText}" IsVisible="{Binding HasOcrText}" TextWrapping="Wrap" LineHeight="21" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding OcrPlaceholder}" IsVisible="{Binding !HasOcrText}" Theme="{StaticResource MatText.Muted}" />
+                  <Button Grid.Column="1" Theme="{StaticResource MatButton.Icon}" VerticalAlignment="Top" Margin="8,-6,-6,0" Click="OnCopyOcrClick" IsVisible="{Binding HasOcrText}"
                           ToolTip.Tip="Erkannten Text kopieren" AutomationProperties.Name="Erkannten Text kopieren">
-                    <controls:IconView Data="{StaticResource Icon.Copy}" Width="17" Height="17" />
+                    <mat:MatIcon Icon="copy" Size="16" />
                   </Button>
                 </Grid>
               </Border>
@@ -177,57 +179,57 @@
 
             <!-- Facts -->
             <StackPanel x:Name="Facts">
-              <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,0,0,4" />
+              <Border Height="1" Background="{DynamicResource Mat.Border}" Margin="0,0,0,4" />
               <Grid ColumnDefinitions="Auto,*" Classes="fact">
-                <controls:IconView Data="{Binding KindIcon}" Width="17" Height="17" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,12,0" />
+                <mat:MatIcon Icon="{Binding KindIcon}" Size="16" Foreground="{DynamicResource Mat.TextMuted}" Margin="0,0,12,0" />
                 <DockPanel Grid.Column="1">
                   <TextBlock DockPanel.Dock="Right" Text="{Binding TypeText}" />
-                  <TextBlock Text="Typ" Foreground="{DynamicResource TextMutedBrush}" />
+                  <TextBlock Text="Typ" Foreground="{DynamicResource Mat.TextMuted}" />
                 </DockPanel>
               </Grid>
               <Grid ColumnDefinitions="Auto,*" Classes="fact" IsVisible="{Binding IsImage}">
-                <controls:IconView Data="{StaticResource Icon.Sparkles}" Width="17" Height="17" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,12,0" />
+                <mat:MatIcon Icon="sparkles" Size="16" Foreground="{DynamicResource Mat.TextMuted}" Margin="0,0,12,0" />
                 <DockPanel Grid.Column="1">
                   <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="5">
-                    <controls:IconView Data="{StaticResource Icon.Check}" Width="15" Height="15" Foreground="{DynamicResource SuccessBrush}" IsVisible="{Binding OcrRecognized}" />
+                    <mat:MatIcon Icon="check" Size="15" Foreground="{DynamicResource Mat.SuccessText}" IsVisible="{Binding OcrRecognized}" />
                     <TextBlock Text="{Binding OcrStatusText}" />
                   </StackPanel>
-                  <TextBlock Text="OCR" Foreground="{DynamicResource TextMutedBrush}" />
+                  <TextBlock Text="OCR" Foreground="{DynamicResource Mat.TextMuted}" />
                 </DockPanel>
               </Grid>
               <Grid ColumnDefinitions="Auto,*" Classes="fact">
-                <controls:IconView Data="{StaticResource Icon.Layers}" Width="17" Height="17" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,12,0" />
+                <mat:MatIcon Icon="layers" Size="16" Foreground="{DynamicResource Mat.TextMuted}" Margin="0,0,12,0" />
                 <DockPanel Grid.Column="1">
                   <TextBlock DockPanel.Dock="Right" Text="{Binding SizeText}" />
-                  <TextBlock Text="Größe" Foreground="{DynamicResource TextMutedBrush}" />
+                  <TextBlock Text="Größe" Foreground="{DynamicResource Mat.TextMuted}" />
                 </DockPanel>
               </Grid>
               <Grid ColumnDefinitions="Auto,*" Classes="fact">
-                <controls:IconView Data="{StaticResource Icon.History}" Width="17" Height="17" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,12,0" />
+                <mat:MatIcon Icon="clock" Size="16" Foreground="{DynamicResource Mat.TextMuted}" Margin="0,0,12,0" />
                 <DockPanel Grid.Column="1">
                   <TextBlock DockPanel.Dock="Right" Text="{Binding CreatedText}" />
-                  <TextBlock Text="Erstellt" Foreground="{DynamicResource TextMutedBrush}" />
+                  <TextBlock Text="Erstellt" Foreground="{DynamicResource Mat.TextMuted}" />
                 </DockPanel>
               </Grid>
               <Grid ColumnDefinitions="Auto,*" Classes="fact">
-                <controls:IconView Data="{StaticResource Icon.Copy}" Width="17" Height="17" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,12,0" />
+                <mat:MatIcon Icon="copy" Size="16" Foreground="{DynamicResource Mat.TextMuted}" Margin="0,0,12,0" />
                 <DockPanel Grid.Column="1">
                   <TextBlock DockPanel.Dock="Right" Text="{Binding CopiedText}" />
-                  <TextBlock Text="Zuletzt kopiert" Foreground="{DynamicResource TextMutedBrush}" />
+                  <TextBlock Text="Zuletzt kopiert" Foreground="{DynamicResource Mat.TextMuted}" />
                 </DockPanel>
               </Grid>
               <Grid ColumnDefinitions="Auto,*" Classes="fact">
-                <controls:IconView Data="{StaticResource Icon.Device}" Width="17" Height="17" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,12,0" />
+                <mat:MatIcon Icon="monitor" Size="16" Foreground="{DynamicResource Mat.TextMuted}" Margin="0,0,12,0" />
                 <DockPanel Grid.Column="1">
                   <TextBlock DockPanel.Dock="Right" Text="{Binding SourceText}" TextTrimming="CharacterEllipsis" MaxWidth="220" />
-                  <TextBlock Text="Quelle" Foreground="{DynamicResource TextMutedBrush}" />
+                  <TextBlock Text="Quelle" Foreground="{DynamicResource Mat.TextMuted}" />
                 </DockPanel>
               </Grid>
               <Grid ColumnDefinitions="Auto,*" Classes="fact last">
-                <controls:IconView Data="{StaticResource Icon.Clipboard}" Width="17" Height="17" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,12,0" />
+                <mat:MatIcon Icon="clipboard" Size="16" Foreground="{DynamicResource Mat.TextMuted}" Margin="0,0,12,0" />
                 <DockPanel Grid.Column="1">
                   <TextBlock DockPanel.Dock="Right" Text="{Binding RetentionText}" />
-                  <TextBlock Text="Speicherdauer" Foreground="{DynamicResource TextMutedBrush}" />
+                  <TextBlock Text="Speicherdauer" Foreground="{DynamicResource Mat.TextMuted}" />
                 </DockPanel>
               </Grid>
             </StackPanel>
@@ -235,28 +237,30 @@
           </StackPanel>
         </ScrollViewer>
 
-        <TextBlock x:Name="NoSelection" Text="Wähle einen Eintrag aus." Theme="{StaticResource MutedText}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="False" />
+        <TextBlock x:Name="NoSelection" Text="Wähle einen Eintrag aus." Theme="{StaticResource MatText.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="False" />
       </Panel>
     </Border>
   </Grid>
 
   <UserControl.Styles>
-    <!-- The card of a row (ListBoxItem theme ClipRow): white, hover grey, chosen = accent line and tint (mockup). -->
+    <!-- The card of a row (ListBoxItem theme ThixClip.ClipRow): the surface with a line, a step darker under the pointer, chosen = a tint with the accent as its line. -->
     <Style Selector="ListBoxItem Border.row">
-      <Setter Property="Background" Value="{DynamicResource CardBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+      <Setter Property="Background" Value="{DynamicResource Mat.Surface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Mat.Border}" />
     </Style>
     <Style Selector="ListBoxItem:pointerover Border.row">
-      <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+      <Setter Property="Background" Value="{DynamicResource Mat.Surface2}" />
     </Style>
     <Style Selector="ListBoxItem:selected Border.row">
-      <Setter Property="Background" Value="{DynamicResource SelectionBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="Background" Value="{DynamicResource Mat.AccentSoft}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Mat.Accent}" />
+    </Style>
+    <Style Selector="ListBoxItem:focus-visible Border.row">
+      <Setter Property="BorderBrush" Value="{DynamicResource Mat.FocusRing}" />
     </Style>
     <!-- Icon-only buttons of the detail pane: square-ish, so six of them fit the narrow pane in one line -->
     <Style Selector="Button.icon">
-      <Setter Property="Padding" Value="10,7" />
+      <Setter Property="Padding" Value="10,0" />
       <Setter Property="MinWidth" Value="38" />
     </Style>
     <Style Selector="Grid.fact">

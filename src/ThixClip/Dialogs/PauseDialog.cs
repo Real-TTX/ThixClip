@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
+using MatDesktop;
 using ThixClip.Controls;
 using ThixClip.Core.Business;
 
@@ -13,7 +14,7 @@ namespace ThixClip.Dialogs;
 /// "Aufzeichnung pausieren": how long (15 min, 30 min, 1 hour, until ThixClip starts again, until I resume). ↑ ↓ choose,
 /// Enter pauses, Esc cancels. Answers the length or null; the caller pauses (RecordingService.Pause).
 /// </summary>
-public sealed class PauseDialog : ThemedWindow
+public sealed class PauseDialog : MatWindow
 {
     private readonly ListBox _lengths = new()
     {
@@ -30,15 +31,16 @@ public sealed class PauseDialog : ThemedWindow
         SizeToContent = SizeToContent.Height;
         CanResize = false;
         ShowInTaskbar = false;
-        this[!BackgroundProperty] = this.GetResourceObservable("CardBrush").ToBinding();
+        Icon = Ui.AppIcon;
+        this.Use(BackgroundProperty, "Mat.Surface");
 
-        _lengths.Theme = Ui.Theme("ClipList");
+        _lengths.Theme = Ui.Theme("ThixClip.ClipList");
         AutomationProperties.SetName(_lengths, "Dauer");
         foreach (var length in RecordingService.Choices)
         {
             var item = new ListBoxItem
             {
-                Theme = Ui.Theme("ChoiceRow"),
+                Theme = Ui.Theme("ThixClip.ChoiceRow"),
                 Tag = length,
                 Content = new TextBlock { Text = RecordingService.Text(length) },
             };
@@ -51,13 +53,13 @@ public sealed class PauseDialog : ThemedWindow
 
         var pause = new Button
         {
-            Content = new IconLabel { Icon = Ui.Icon("Icon.Pause"), Text = "Pausieren" },
+            Content = new IconLabel { Icon = "pause", Text = "Pausieren" },
             IsDefault = true,
-            Theme = Ui.Theme("PrimaryButton"),
+            Theme = Ui.Theme("MatButton.Primary"),
         };
         pause.Click += (_, _) => Choose();
 
-        var cancel = new Button { Content = new IconLabel { Icon = Ui.Icon("Icon.Close"), Text = "Abbrechen" }, IsCancel = true };
+        var cancel = new Button { Content = new IconLabel { Icon = "x", Text = "Abbrechen" }, IsCancel = true };
         cancel.Click += (_, _) => Close();
 
         Content = new StackPanel
@@ -65,15 +67,14 @@ public sealed class PauseDialog : ThemedWindow
             Margin = new Thickness(24, 22),
             Children =
             {
-                new TextBlock { Text = Title, FontSize = 17, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 6) },
+                new TextBlock { Text = Title, FontSize = MatTokens.Type.FsLg, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 6) },
                 new TextBlock
                 {
                     Text = "Solange die Pause läuft, kommt nichts Kopiertes in den Verlauf.",
                     TextWrapping = TextWrapping.Wrap,
-                    Foreground = Ui.Brush("TextMutedBrush"),
                     Margin = new Thickness(0, 0, 0, 14),
-                },
-                new TextBlock { Text = "Dauer", Theme = Ui.Theme("FieldLabel"), Margin = new Thickness(0, 0, 0, 6) },
+                }.Use(TextBlock.ForegroundProperty, "Mat.TextMuted"),
+                new TextBlock { Text = "Dauer", Theme = Ui.Theme("MatText.FieldLabel"), Margin = new Thickness(0, 0, 0, 6) },
                 _lengths,
                 new ActionBar { Margin = new Thickness(0, 20, 0, 0), Children = { pause, cancel } },
             },

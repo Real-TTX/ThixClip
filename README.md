@@ -16,14 +16,16 @@
   Zeitraum vorab; Favoriten und Angeheftetes bleiben, mit der Cloud verschwindet es auf allen Geräten.
 - **Einklappbares Menü**: die Seitenleiste lässt sich auf ihre Symbole einklappen und bleibt so.
 - **Aufzeichnung pausieren**: der Knopf oben im Fenster (oder `Strg/⌘ + Umschalt + P`, das Tray-Menü) fragt nach der Dauer –
-  15 / 30 Minuten, 1 Stunde, bis zum Neustart oder bis du fortsetzt. Während der Pause trägt das Tray-Symbol ein
-  Pause-Zeichen und oben steht „Fortsetzen“.
+  15 / 30 Minuten, 1 Stunde, bis zum Neustart oder bis du fortsetzt. Während der Pause trägt das Tray-Symbol einen
+  gelben Punkt mit Pause-Zeichen (sonst grün: läuft) und oben steht „Fortsetzen“.
 - **Ansehen**: ein Eintrag öffnet sich in ThixClip selbst – ein Bild groß (Leertaste: Originalgröße), ein Text oder Link
   ganz und markierbar; von dort einfügen, kopieren oder einen Link im Browser öffnen. Mit `Strg/⌘ + O`, `Strg/⌘`+Klick,
   einem Klick auf das Bild oder dem Knopf in der Vorschau.
 - **Abstürze und Hänger werden sichtbar**: ein unerwarteter Fehler erscheint sofort mit seiner Meldung, ein Hänger wird mit
   Bericht (unter Windows mit Speicherabbild) im Protokollordner festgehalten; beim nächsten Start zeigt ThixClip den Bericht.
 - **Vertrauliches bleibt draußen**: was Passwort-Manager als vertraulich markieren, wird nie aufgezeichnet.
+- **Im Look der Mat-Familie**: Farben, Symbole, Titelleiste, Menü, Tray, Benachrichtigungen und Setup kommen aus
+  **MatDesktop**, dem Desktop-Toolkit von MatDesign (hell, dunkel oder wie das System).
 - **Tray / Menüleiste**, **Autostart**, **Setup** (Windows) bzw. **App-Bundle + DMG** (macOS), **OTA-Updates** mit
   optionalem **Full-Auto-Update**.
 - **ThixClip.Cloud** (Docker, Port 4950): Einträge, Favoriten und Löschungen werden zwischen allen Geräten abgeglichen,
@@ -31,11 +33,11 @@
 
 | Verlauf (hell) | Verlauf (dunkel) |
 |---|---|
-| ![Verlauf](docs/images/desktop-history-light.png) | ![Verlauf dunkel](docs/images/desktop-history-dark.png) |
+| ![Verlauf](docs/images/main-history-light.png) | ![Verlauf dunkel](docs/images/main-history-dark.png) |
 
 | Einstellungen | Cloud im Browser | Cloud auf dem Telefon |
 |---|---|---|
-| ![Einstellungen](docs/images/desktop-settings-light.png) | ![Cloud](docs/images/cloud-history.png) | ![Telefon](docs/images/cloud-phone-light-history.png) |
+| ![Einstellungen](docs/images/main-settings-light.png) | ![Cloud](docs/images/cloud-history.png) | ![Telefon](docs/images/cloud-phone-light-history.png) |
 
 ## Bedienung per Tastatur
 
@@ -59,16 +61,17 @@
 | `Strg/⌘ + Umschalt + P` | Aufzeichnung pausieren (mit Dauer) / fortsetzen |
 | `Esc` | Suche leeren, dann schließen (der Fokus geht zurück in die vorherige App) |
 
-Die Versionsnummer unten links öffnet „Über ThixClip“ (eingeklappt: das ⓘ-Symbol), der Knopf daneben klappt das Menü ein.
-Liegt ein Update bereit, steht es an der Versionsnummer; „Über ThixClip“ führt mit „Update installieren …“ zu Einstellungen › Updates.
+Die Version unten links („Version 1.0.0 · release“) öffnet „Über ThixClip“ (eingeklappt: das ⓘ-Symbol), der Knopf daneben klappt
+das Menü ein. Liegt ein Update bereit, steht „Update auf …“ darüber; „Über ThixClip“ führt mit „Update installieren …“ zu
+Einstellungen › Updates.
 
 | Menü eingeklappt | Verlauf löschen |
 |---|---|
-| ![Menü eingeklappt](docs/images/desktop-menu-folded.png) | ![Verlauf löschen](docs/images/desktop-clear-history.png) |
+| ![Menü eingeklappt](docs/images/main-folded-light.png) | ![Verlauf löschen](docs/images/dialog-clear-history-light.png) |
 
 | Aufzeichnung pausiert | Pause mit Dauer | Bild ansehen |
 |---|---|---|
-| ![Pausiert](docs/images/desktop-paused.png) | ![Pause](docs/images/desktop-pause.png) | ![Ansehen](docs/images/desktop-viewer.png) |
+| ![Pausiert](docs/images/main-paused-light.png) | ![Pause](docs/images/dialog-pause-light.png) | ![Ansehen](docs/images/dialog-viewer-light.png) |
 
 ## Installation
 
@@ -131,8 +134,11 @@ dotnet test tests/ThixClip.Cloud.Tests
 - `ThixClip.exe --self-test <bericht.txt>` prüft das veröffentlichte (getrimmte) Programm selbst – JSON, SQLite, Skia, OCR,
   Verknüpfungen, alle Fenster – in einem eigenen Temp-Ordner; die CI führt das bei jedem Windows-Build aus.
 - `dotnet run --project src/ThixClip -- --snapshot docs/images` (oder `ThixClip.exe --snapshot <ordner>`) zeichnet die Fenster
-  ohne Bildschirm als PNG (hell und dunkel, 1x, natürliche Größe: `setup-*`, `main-*`, `dialog-pause-*`, `toast-*`, `tray-icon-*`) –
-  mit Beispielverlauf in einem Temp-Ordner, fester Uhrzeit und Version 1.0.0; für die Bilder in `docs/images` und in MatDesign.
+  ohne Bildschirm als PNG (hell und dunkel, 1x, natürliche Größe: `setup-*`, `main-*`, `dialog-*`, `toast-*`, `tray-icon-*`) –
+  mit Beispielverlauf in einem Temp-Ordner, fester Uhrzeit, Version 1.0.0 und dem Beispielrechner ANNA-PC; alle Bilder in
+  `docs/images` (und die in MatDesign) kommen daher, nie vom echten Rechner.
+- `src/ThixClip/MatDesktop/` ist eine Kopie von MatDesktop aus MatDesign: nie hier ändern, sondern in MatDesign und neu
+  kopieren (`node tools/matdesktop-copy.js <pfad>/ThixClip/src/ThixClip` im MatDesign-Repository); ein Test prüft die Kopie.
 - `THIXCLIP_DATA_DIR=<ordner>` startet die App mit eigenem Datenordner (eigene Instanz, berührt nichts Installiertes).
 - Logo und Icons: `branding/` ([branding/README.md](branding/README.md)), neu rendern mit `cd tools && npm install && node render-icons.js`.
 - Aufbau, Regeln und Protokoll: [CLAUDE.md](CLAUDE.md), [docs/CLOUD.md](docs/CLOUD.md).

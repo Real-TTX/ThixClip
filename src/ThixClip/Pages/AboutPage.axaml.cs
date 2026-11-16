@@ -1,24 +1,19 @@
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using MatDesktop;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
 
 namespace ThixClip.Pages;
 
-/// <summary>Version, channel, build and where the data lives.</summary>
+/// <summary>Version and channel ("Version 1.0.0 · release", SETUP-07), build and where the data lives.</summary>
 public partial class AboutPage : UserControl
 {
     public AboutPage()
     {
         InitializeComponent();
-        VersionText.Text = $"Version {AppInfo.Version}";
-        ChannelText.Text = AppInfo.Channel switch
-        {
-            "release" => "Release",
-            "nightly" => "Nightly",
-            _ => "Lokaler Build",
-        };
+        VersionText.Text = MatVersion.Format(AppInfo.Version, AppInfo.Channel);
         BuildText.Text = AppInfo.BuildNumber > 0 ? $"#{AppInfo.BuildNumber}" : "–";
         SystemText.Text = $"{RuntimeInformation.OSDescription} ({UpdateService.PlatformKey}), .NET {Environment.Version}";
         DataText.Text = AppPaths.DataDirectory;
@@ -35,13 +30,21 @@ public partial class AboutPage : UserControl
         UpdateText.Text = available
             ? "Installieren dauert nur einen Moment, dein Verlauf bleibt erhalten."
             : AppInfo.IsLocalBuild
-                ? "Ein lokaler Build bekommt keine Updates."
+                ? MatVersion.LocalNote(AppInfo.Channel)
                 : result is null
                     ? "Noch nicht geprüft."
                     : $"{result.Message} Zuletzt geprüft: {(UpdateService.LastCheck is { } last ? Ui.FormatDateTime(last) : "–")}.";
         UpdateLabel.Text = available ? "Update installieren …" : "Nach Updates suchen …";
-        UpdateButton.Theme = available ? Ui.Theme("PrimaryButton") : null;
-        UpdateIcon.Foreground = Ui.Brush(available ? "AccentBrush" : "TextMutedBrush");
+        if (available)
+        {
+            UpdateButton.Themed("MatButton.Primary");
+        }
+        else
+        {
+            UpdateButton.ClearValue(ThemeProperty);
+        }
+
+        UpdateIcon.Use(MatIcon.ForegroundProperty, available ? "Mat.AccentText" : "Mat.TextMuted");
     }
 
     private void OnUpdateClick(object? sender, RoutedEventArgs e)

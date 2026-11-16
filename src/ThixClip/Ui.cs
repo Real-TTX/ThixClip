@@ -1,27 +1,37 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using ThixClip.Core.Infrastructure;
 
 namespace ThixClip;
 
-/// <summary>Small helpers for code-built UI: theme resources by key, the UI thread, opening addresses.</summary>
+/// <summary>
+/// Small helpers for code-built UI: the app icon and logo, the UI thread, opening addresses, texts of times and sizes.
+/// Colours, sizes and named looks are MatDesktop's (<c>control.Use(property, "Mat.TextMuted")</c>,
+/// <c>control.Themed("MatButton.Primary")</c>), icons are <c>MatIcon</c> with the name of the sprite.
+/// </summary>
 internal static class Ui
 {
-    public static object Resource(string key) =>
-        Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out var value) && value is not null
-            ? value
-            : throw new InvalidOperationException($"Resource {key} is missing in Themes/*.axaml.");
+    private static WindowIcon? _appIcon;
+    private static Bitmap? _logo;
 
-    public static IBrush Brush(string key) => (IBrush)Resource(key);
+    /// <summary>The icon of every window of ThixClip (the task bar, Alt+Tab).</summary>
+    public static WindowIcon AppIcon => _appIcon ??= new WindowIcon(AssetLoader.Open(new Uri("avares://ThixClip/Assets/thixclip.ico")));
 
-    /// <summary>An icon geometry ("Icon.Copy", Themes/Icons.axaml).</summary>
-    public static Geometry Icon(string key) => (Geometry)Resource(key);
+    /// <summary>The logo (the mark of the app), for the title bar and the header of the setup.</summary>
+    public static Bitmap Logo => _logo ??= new Bitmap(AssetLoader.Open(new Uri("avares://ThixClip/Assets/logo-256.png")));
 
-    /// <summary>A named look (ControlTheme) such as "PrimaryButton" or "MutedText".</summary>
-    public static ControlTheme Theme(string key) => (ControlTheme)Resource(key);
+    /// <summary>
+    /// A named look of MatDesktop or of ThixClip (a control theme such as "MatButton.Primary" or "ThixClip.ChoiceRow") for
+    /// an object initializer; anywhere else <c>control.Themed(key)</c>. A control theme is the same in light and dark.
+    /// </summary>
+    public static ControlTheme Theme(string key) =>
+        Application.Current!.TryGetResource(key, null, out var value) && value is ControlTheme theme
+            ? theme
+            : throw new InvalidOperationException($"The control theme {key} is missing (MatDesktop/Themes/Controls.axaml, Themes/ThixClipControls.axaml).");
 
     /// <summary>Runs the action on the UI thread (events of the business layer come from any thread).</summary>
     public static void Post(Action action) => Dispatcher.UIThread.Post(action);

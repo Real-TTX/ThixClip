@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using MatDesktop;
 using ThixClip.Controls;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
@@ -117,7 +118,7 @@ public partial class SettingsPage : UserControl
 
             CheckUpdatesSwitch.IsChecked = settings.CheckForUpdates;
             AutoInstallSwitch.IsChecked = settings.InstallUpdatesAutomatically;
-            InstalledVersionText.Text = AppInfo.Version;
+            InstalledVersionText.Text = MatVersion.Value(AppInfo.Version, AppInfo.Channel);
             ChannelText.Text = AppInfo.Channel switch
             {
                 "release" => "Release (Branch main)",
@@ -145,7 +146,7 @@ public partial class SettingsPage : UserControl
         PauseRow.Description = paused
             ? $"{RecordingService.Describe()} – Kopiertes kommt gerade nicht in den Verlauf."
             : $"Für eine Weile nichts aufnehmen, z. B. bei vertraulicher Arbeit ({Ui.PauseShortcut}, auch im Menü des Symbols).";
-        PauseSettingLabel.Icon = Ui.Icon(paused ? "Icon.Play" : "Icon.Pause");
+        PauseSettingLabel.Icon = paused ? "play" : "pause";
         PauseSettingLabel.Text = paused ? "Fortsetzen" : "Pausieren …";
     }
 
@@ -160,7 +161,7 @@ public partial class SettingsPage : UserControl
         CloudLogin.IsEnabled = !AccessPolicy.IsCloudDisabled;
         if (AccessPolicy.IsCloudDisabled)
         {
-            CloudMessage.Show("Die Cloud-Synchronisierung wurde von einem Administrator deaktiviert (Richtlinie DisableCloud).", InfoSeverity.Warning);
+            CloudMessage.Show("Von deiner Organisation festgelegt: die Cloud-Synchronisierung ist ausgeschaltet (Richtlinie DisableCloud).", InfoSeverity.Warning);
         }
         else if (status.State == CloudState.SignedOut)
         {
@@ -217,7 +218,7 @@ public partial class SettingsPage : UserControl
 
         try
         {
-            FormField.ShowError(this, null, "");
+            FormErrors.ShowError(this, null, "");
             PageMessage.Hide();
             change();
         }
@@ -232,7 +233,7 @@ public partial class SettingsPage : UserControl
     {
         try
         {
-            FormField.ShowError(this, null, "");
+            FormErrors.ShowError(this, null, "");
             PageMessage.Hide();
             await change();
         }
@@ -245,7 +246,7 @@ public partial class SettingsPage : UserControl
 
     private void ShowError(string message, string? field)
     {
-        if (!FormField.ShowError(this, field, message))
+        if (!FormErrors.ShowError(this, field, message))
         {
             PageMessage.Show(message, InfoSeverity.Error);
         }
@@ -269,14 +270,14 @@ public partial class SettingsPage : UserControl
         CloudMessage.Hide();
         try
         {
-            FormField.ShowError(this, null, "");
+            FormErrors.ShowError(this, null, "");
             await SyncService.ConnectAsync(ServerUrlBox.Text ?? "", UserNameBox.Text ?? "", PasswordBox.Text ?? "", DeviceNameBox.Text ?? "");
             PasswordBox.Text = "";
             CloudMessage.Show("Verbunden. Dein Verlauf wird jetzt mit der Cloud abgeglichen.", InfoSeverity.Success);
         }
         catch (BusinessException exception)
         {
-            if (!FormField.ShowError(this, exception.Field, exception.Message))
+            if (!FormErrors.ShowError(this, exception.Field, exception.Message))
             {
                 CloudMessage.Show(exception.Message, InfoSeverity.Error);
             }

@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using MatDesktop;
 using ThixClip.Core.Business;
 
 namespace ThixClip.Controls;
@@ -22,7 +23,7 @@ public sealed class KeyCaps : Border
 
     public KeyCaps()
     {
-        Theme = Ui.Theme("KeyCap");
+        this.Themed("MatKeyCap");
         Child = _text;
     }
 

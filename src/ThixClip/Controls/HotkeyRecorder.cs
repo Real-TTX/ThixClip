@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using MatDesktop;
 using ThixClip.Core.Business;
 
 namespace ThixClip.Controls;
@@ -117,7 +118,7 @@ public sealed class HotkeyRecorder : Button
         HotkeyService.Suspend(true);
         _caps.IsVisible = false;
         _prompt.IsVisible = true;
-        BorderBrush = Ui.Brush("AccentBrush");
+        this.Use(BorderBrushProperty, "Mat.Accent");
         Focus();
     }
 

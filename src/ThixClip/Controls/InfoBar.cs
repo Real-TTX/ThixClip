@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using MatDesktop;
 
 namespace ThixClip.Controls;
 
@@ -13,19 +14,22 @@ public enum InfoSeverity
     Error,
 }
 
-/// <summary>A message in a tinted box with an icon (results, hints, errors without a field). Hidden until shown.</summary>
+/// <summary>
+/// A message in a tinted box with an icon (results, hints, errors without a field), like MatUi's alert (mat-alert): the
+/// tint of the state behind it, the icon in the text colour of the state, the message in the text colour. Hidden until shown.
+/// </summary>
 public sealed class InfoBar : Border
 {
-    private readonly IconView _icon = new() { Width = 18, Height = 18, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 1, 10, 0) };
-    private readonly SelectableTextBlock _text = new() { TextWrapping = TextWrapping.Wrap, FontSize = 13 };
+    private readonly MatIcon _icon = new() { Size = 18, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 1, 10, 0) };
+    private readonly SelectableTextBlock _text = new() { TextWrapping = TextWrapping.Wrap };
 
     public InfoBar()
     {
         IsVisible = false;
-        CornerRadius = new CornerRadius(10);
-        Padding = new Thickness(14, 10);
+        this.Use(CornerRadiusProperty, "Mat.Radius");
+        Padding = new Thickness(MatTokens.Size.Space4, MatTokens.Size.Space3);
         Margin = new Thickness(0, 0, 0, 12);
-        BorderThickness = new Thickness(1);
+        _text.Use(SelectableTextBlock.ForegroundProperty, "Mat.Text");
         var dock = new DockPanel();
         DockPanel.SetDock(_icon, Dock.Left);
         dock.Children.Add(_icon);
@@ -33,19 +37,21 @@ public sealed class InfoBar : Border
         Child = dock;
     }
 
+    /// <summary>The message shown (tests).</summary>
+    public string? Text => _text.Text;
+
     public void Show(string message, InfoSeverity severity)
     {
-        var (background, foreground, icon) = severity switch
+        var (state, icon) = severity switch
         {
-            InfoSeverity.Success => ("SuccessSoftBrush", "SuccessBrush", "Icon.Success"),
-            InfoSeverity.Warning => ("WarningSoftBrush", "WarningBrush", "Icon.Warning"),
-            InfoSeverity.Error => ("DangerSoftBrush", "DangerBrush", "Icon.Error"),
-            _ => ("AccentSoftBrush", "AccentTextBrush", "Icon.Info"),
+            InfoSeverity.Success => ("Success", "check-circle"),
+            InfoSeverity.Warning => ("Warning", "alert"),
+            InfoSeverity.Error => ("Danger", "x-circle"),
+            _ => ("Info", "info"),
         };
-        Background = Ui.Brush(background);
-        BorderBrush = new SolidColorBrush(((ISolidColorBrush)Ui.Brush(foreground)).Color, 0.35);
-        _icon.Foreground = Ui.Brush(foreground);
-        _icon.Data = Ui.Icon(icon);
+        this.Use(BackgroundProperty, $"Mat.{state}Bg");
+        _icon.Use(MatIcon.ForegroundProperty, $"Mat.{state}Text");
+        _icon.Icon = icon;
         _text.Text = message;
         IsVisible = true;
     }

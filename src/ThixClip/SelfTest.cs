@@ -136,7 +136,7 @@ internal static class SelfTest
             Ensure(await pause is null, "pause dialog answered without a choice");
             if (OperatingSystem.IsWindows())
             {
-                var setup = new Setup.SetupWindow();
+                var setup = Setup.ThixClipSetup.Create(isUninstall: false, InstallService.IsInstalled, InstallService.InstalledVersion, InstallService.ProgramFolder, _ => Task.CompletedTask);
                 setup.Show();
                 await Settle();
                 setup.Close();

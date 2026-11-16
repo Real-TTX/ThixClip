@@ -1,12 +1,13 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using MatDesktop;
 using ThixClip.Controls;
 
 namespace ThixClip.Dialogs;
 
 /// <summary>A yes/no question (clear the history, sign out). Buttons from positive to negative; Esc cancels.</summary>
-public sealed class ConfirmDialog : ThemedWindow
+public sealed class ConfirmDialog : MatWindow
 {
     private bool _confirmed;
 
@@ -18,13 +19,14 @@ public sealed class ConfirmDialog : ThemedWindow
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ShowInTaskbar = false;
-        this[!BackgroundProperty] = this.GetResourceObservable("CardBrush").ToBinding();
+        Icon = Ui.AppIcon;
+        this.Use(BackgroundProperty, "Mat.Surface");
 
         var confirm = new Button
         {
-            Content = new IconLabel { Icon = Ui.Icon(isDestructive ? "Icon.Delete" : "Icon.Check"), Text = confirmText },
+            Content = new IconLabel { Icon = isDestructive ? "trash" : "check", Text = confirmText },
             IsDefault = !isDestructive,
-            Theme = Ui.Theme(isDestructive ? "DangerButton" : "PrimaryButton"),
+            Theme = Ui.Theme(isDestructive ? "MatButton.Danger" : "MatButton.Primary"),
         };
         confirm.Click += (_, _) =>
         {
@@ -35,13 +37,13 @@ public sealed class ConfirmDialog : ThemedWindow
         var actions = new ActionBar { Children = { confirm } };
         if (hasCancel)
         {
-            var cancel = new Button { Content = new IconLabel { Icon = Ui.Icon("Icon.Close"), Text = "Abbrechen" }, IsCancel = true, IsDefault = isDestructive };
+            var cancel = new Button { Content = new IconLabel { Icon = "x", Text = "Abbrechen" }, IsCancel = true, IsDefault = isDestructive };
             cancel.Click += (_, _) => Close();
             actions.Children.Add(cancel);
         }
 
-        var heading = new TextBlock { Text = title, FontSize = 17, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 8), TextWrapping = TextWrapping.Wrap };
-        var text = new SelectableTextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 22), Foreground = Ui.Brush("TextMutedBrush") };
+        var heading = new TextBlock { Text = title, FontSize = MatTokens.Type.FsLg, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 8), TextWrapping = TextWrapping.Wrap };
+        var text = new SelectableTextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 22) }.Use(SelectableTextBlock.ForegroundProperty, "Mat.TextMuted");
 
         Content = new StackPanel { Margin = new Thickness(24, 22), Children = { heading, text, actions } };
         Opened += (_, _) => (hasCancel && isDestructive ? actions.Children[1] : confirm).Focus();

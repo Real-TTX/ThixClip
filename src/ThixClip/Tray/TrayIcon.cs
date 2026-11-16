@@ -1,129 +1,135 @@
-using Avalonia.Controls;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using MatDesktop;
 using ThixClip.Core.Business;
+using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
 using ThixClip.Shared;
-using AvaloniaTrayIcon = Avalonia.Controls.TrayIcon;
 
 namespace ThixClip.Tray;
 
 /// <summary>
-/// The icon in the notification area (Windows) or the menu bar (macOS) and its menu: open ThixClip, the five latest
-/// entries to copy again, pause recording, sync now, settings, updates, quit. Windows: a click opens the window, the
-/// right button the menu. macOS: the glyph is a template image (the menu bar colours it), every click opens the menu.
+/// The icon in the notification area (Windows) or the menu bar (macOS), with MatDesktop's tray (TRAY-01 … TRAY-04):
+/// the menu in the order of every Mat tray – "ThixClip 1.0.0", the state in words, "ThixClip öffnen", ThixClip's own items
+/// (the five latest entries to copy again, pause / resume, sync now), "Einstellungen …", "Log-Ordner öffnen",
+/// "Update installieren …" while one waits, "Beenden". The state is the dot of the icon: running green, paused amber
+/// with a pause sign (on macOS a template image with the pause shape). Windows: a left click opens the window, the right
+/// button the menu; macOS: every click opens the menu.
 /// </summary>
 internal sealed class TrayIcon : IDisposable
 {
     private const int RecentCount = 5;
 
-    private readonly AvaloniaTrayIcon _trayIcon;
-    private readonly NativeMenu _menu = new();
     private readonly App _app;
-    private readonly WindowIcon _normalIcon;
-    private readonly WindowIcon _pausedIcon;
+    private readonly MatTrayMenu _menu;
+    private readonly MatTray _tray;
     private bool _updateAvailable;
+    private bool _refreshPosted;
 
     public TrayIcon(App app)
     {
         _app = app;
-        var asset = new Uri(OperatingSystem.IsMacOS() ? "avares://ThixClip/Assets/tray-macos.png" : "avares://ThixClip/Assets/tray-windows.ico");
-        _normalIcon = new WindowIcon(AssetLoader.Open(asset));
-        _pausedIcon = TrayIconImages.WithPauseBadge(asset, isTemplate: OperatingSystem.IsMacOS()) ?? _normalIcon;
-        _trayIcon = new AvaloniaTrayIcon
+        _menu = new MatTrayMenu(AppInfo.ProductName, AppInfo.Version, () => _app.ExitApplication())
         {
-            Icon = RecordingService.IsPaused ? _pausedIcon : _normalIcon,
-            ToolTipText = ToolTip(),
-            Menu = _menu,
-            IsVisible = true,
+            Open = () => _app.ShowMainWindow(),
+            Settings = () => _app.ShowMainWindow(window => window.ShowSettings()),
+            LogFolder = () => Ui.OpenExternal(AppPaths.LogDirectory),
         };
-        if (OperatingSystem.IsMacOS())
-        {
-            MacOSProperties.SetIsTemplateIcon(_trayIcon, true);
-        }
-
-        _trayIcon.Clicked += (_, _) => _app.ShowMainWindow();
-        _menu.Opening += (_, _) => BuildMenu();
-        AvaloniaTrayIcon.SetIcons(app, [_trayIcon]);
-        SettingsService.Changed += OnSettingsChanged;
-        RecordingService.Changed += OnRecordingChanged;
-        BuildMenu();
+        Update();
+        _tray = new MatTray(app, _menu, Mark());
+        SettingsService.Changed += OnChanged;
+        RecordingService.Changed += OnChanged;
+        ClipService.Changed += OnChanged;
     }
+
+    /// <summary>The model of the menu (MatTray builds the menu from it).</summary>
+    public MatTrayMenu Menu => _menu;
+
+    /// <summary>The state of the tray: running, or paused (a state of ThixClip's own, TRAY-02) with its end in words.</summary>
+    public static MatState State => RecordingService.IsPaused
+        ? MatState.Custom(RecordingService.Describe(), "--mat-warning", MatStateMark.Pause)
+        : MatState.Running;
+
+    /// <summary>The mark the tray icons are drawn from: the logo on Windows, the template image (black on transparent) on macOS.</summary>
+    public static Bitmap Mark(bool? template = null) =>
+        new(AssetLoader.Open(new Uri((template ?? OperatingSystem.IsMacOS()) ? "avares://ThixClip/Assets/tray-macos.png" : "avares://ThixClip/Assets/logo-64.png")));
 
     public void SetUpdateAvailable(bool available)
     {
         _updateAvailable = available;
-        BuildMenu();
+        Refresh();
     }
 
+    /// <summary>A notification of ThixClip's own (TRAY-04: only for what the user did not cause); a click opens the window.</summary>
     public void ShowNotification(string title, string text, bool isWarning = false) =>
-        NotificationToast.Show(title, text, isWarning, () => _app.ShowMainWindow());
+        MatNotification.Show(title, text, isWarning, () => _app.ShowMainWindow());
 
     public void Dispose()
     {
-        SettingsService.Changed -= OnSettingsChanged;
-        RecordingService.Changed -= OnRecordingChanged;
-        _trayIcon.IsVisible = false;
-        _trayIcon.Dispose();
+        SettingsService.Changed -= OnChanged;
+        RecordingService.Changed -= OnChanged;
+        ClipService.Changed -= OnChanged;
+        _tray.Dispose();
     }
 
-    private void OnSettingsChanged(object? sender, AppSettings settings) => Ui.Post(() =>
+    /// <summary>
+    /// The state, the last entries or a setting changed: the menu and the icon follow. MatTray builds its menu from the model
+    /// and has no hook when the menu opens, so the model is kept up to date (coalesced: a burst of changes is one refresh).
+    /// </summary>
+    private void OnChanged(object? sender, object? e)
     {
-        _trayIcon.ToolTipText = ToolTip();
-        BuildMenu();
-    });
+        if (_refreshPosted)
+        {
+            return;
+        }
 
-    /// <summary>A pause shows in the icon itself (a pause badge), in its tool tip and in the menu.</summary>
-    private void OnRecordingChanged(object? sender, EventArgs e) => Ui.Post(() =>
-    {
-        _trayIcon.Icon = RecordingService.IsPaused ? _pausedIcon : _normalIcon;
-        _trayIcon.ToolTipText = ToolTip();
-        BuildMenu();
-    });
-
-    private static string ToolTip()
-    {
-        var hotkey = HotkeyService.Display(SettingsService.Get().Hotkey);
-        return RecordingService.IsPaused ? $"ThixClip – Aufzeichnung {RecordingService.Describe().ToLowerInvariant()} ({hotkey})" : $"ThixClip – {hotkey}";
+        _refreshPosted = true;
+        Ui.Post(() =>
+        {
+            _refreshPosted = false;
+            Refresh();
+        });
     }
 
-    private void BuildMenu()
+    private void Refresh()
     {
-        _menu.Items.Clear();
-        var settings = SettingsService.Get();
+        Update();
+        _tray.Refresh();
+    }
 
-        _menu.Items.Add(Item($"ThixClip öffnen\t{HotkeyService.Display(settings.Hotkey)}", () => _app.ShowMainWindow()));
-        _menu.Items.Add(new NativeMenuItemSeparator());
+    /// <summary>The model: the state, ThixClip's own items and whether an update waits.</summary>
+    private void Update()
+    {
+        _menu.State = State;
+        _menu.InstallUpdate = _updateAvailable ? () => _app.ShowMainWindow(window => window.ShowSettings(Pages.SettingsPage.UpdatesTab)) : null;
+        _menu.ClearOwn();
 
         var recent = ClipService.Query(new ClipQuery()).Where(entry => !entry.IsPinned).Take(RecentCount).ToList();
-        _menu.Items.Add(new NativeMenuItem("Zuletzt kopiert") { IsEnabled = false });
+        _menu.AddOwn("Zuletzt kopiert", null);
         if (recent.Count == 0)
         {
-            _menu.Items.Add(new NativeMenuItem("Noch nichts kopiert") { IsEnabled = false });
+            _menu.AddOwn("Noch nichts kopiert", null);
         }
 
         foreach (var entry in recent)
         {
             var id = entry.Id;
-            _menu.Items.Add(Item(MenuText(entry), () => Copy(id)));
+            _menu.AddOwn(MenuText(entry), () => Copy(id));
         }
 
-        _menu.Items.Add(new NativeMenuItemSeparator());
-        _menu.Items.Add(RecordingService.IsPaused
-            ? Item($"Aufzeichnung fortsetzen ({RecordingService.Describe()})", RecordingService.Resume)
-            : Item("Aufzeichnung pausieren …", () => _ = _app.TogglePauseAsync()));
-        if (settings.Cloud.IsConnected)
+        if (RecordingService.IsPaused)
         {
-            _menu.Items.Add(Item("Jetzt synchronisieren", SyncService.Kick));
+            _menu.AddOwn($"Aufzeichnung fortsetzen ({RecordingService.Describe()})", RecordingService.Resume);
         }
-
-        _menu.Items.Add(Item("Einstellungen …", () => _app.ShowMainWindow(window => window.ShowSettings())));
-        if (_updateAvailable)
+        else
         {
-            _menu.Items.Add(Item("Update installieren …", () => _app.ShowMainWindow(window => window.ShowSettings(Pages.SettingsPage.UpdatesTab))));
+            _menu.AddOwn("Aufzeichnung pausieren …", () => _ = _app.TogglePauseAsync());
         }
 
-        _menu.Items.Add(new NativeMenuItemSeparator());
-        _menu.Items.Add(Item("Beenden", () => _app.ExitApplication()));
+        if (SettingsService.Get().Cloud.IsConnected)
+        {
+            _menu.AddOwn("Jetzt synchronisieren", SyncService.Kick);
+        }
     }
 
     private void Copy(long id)
@@ -147,21 +153,5 @@ internal sealed class TrayIcon : IDisposable
 
         var text = string.Join(' ', (entry.Text ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         return text.Length <= 48 ? text : text[..47] + "…";
-    }
-
-    private static NativeMenuItem Item(string header, Action action) => new(header) { Command = new RelayCommand(action) };
-
-    /// <summary>Menu items run their action through a command (works on Windows and in the macOS menu bar).</summary>
-    private sealed class RelayCommand(Action action) : System.Windows.Input.ICommand
-    {
-        public event EventHandler? CanExecuteChanged
-        {
-            add { }
-            remove { }
-        }
-
-        public bool CanExecute(object? parameter) => true;
-
-        public void Execute(object? parameter) => Ui.Post(action);
     }
 }

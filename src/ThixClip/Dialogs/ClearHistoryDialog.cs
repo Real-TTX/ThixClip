@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using MatDesktop;
 using ThixClip.Controls;
 using ThixClip.Core.Business;
 using ThixClip.Shared;
@@ -16,7 +17,7 @@ namespace ThixClip.Dialogs;
 /// delete. ↑ ↓ choose, Enter deletes, Esc cancels. Favourites and pinned entries stay. Answers the range or null; the
 /// caller deletes (ClipService.ClearHistory).
 /// </summary>
-public sealed class ClearHistoryDialog : ThemedWindow
+public sealed class ClearHistoryDialog : MatWindow
 {
     private readonly ListBox _ranges = new()
     {
@@ -25,7 +26,7 @@ public sealed class ClearHistoryDialog : ThemedWindow
     };
 
     private readonly Button _delete;
-    private readonly IconLabel _deleteLabel = new() { Icon = Ui.Icon("Icon.Delete") };
+    private readonly IconLabel _deleteLabel = new() { Icon = "trash" };
     private ClearRange? _chosen;
 
     private ClearHistoryDialog(ClearRange initial)
@@ -36,9 +37,10 @@ public sealed class ClearHistoryDialog : ThemedWindow
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ShowInTaskbar = false;
-        this[!BackgroundProperty] = this.GetResourceObservable("CardBrush").ToBinding();
+        Icon = Ui.AppIcon;
+        this.Use(BackgroundProperty, "Mat.Surface");
 
-        _ranges.Theme = Ui.Theme("ClipList");
+        _ranges.Theme = Ui.Theme("ThixClip.ClipList");
         AutomationProperties.SetName(_ranges, "Zeitraum");
         foreach (var range in ClearRanges.Choices)
         {
@@ -49,27 +51,26 @@ public sealed class ClearHistoryDialog : ThemedWindow
         _ranges.SelectionChanged += (_, _) => UpdateDeleteButton();
 
         // Enter deletes the chosen range (the dialog is the question already), Esc cancels.
-        _delete = new Button { Content = _deleteLabel, IsDefault = true, Theme = Ui.Theme("DangerButton") };
+        _delete = new Button { Content = _deleteLabel, IsDefault = true, Theme = Ui.Theme("MatButton.Danger") };
         _delete.Click += (_, _) =>
         {
             _chosen = Selected.Range;
             Close();
         };
 
-        var cancel = new Button { Content = new IconLabel { Icon = Ui.Icon("Icon.Close"), Text = "Abbrechen" }, IsCancel = true };
+        var cancel = new Button { Content = new IconLabel { Icon = "x", Text = "Abbrechen" }, IsCancel = true };
         cancel.Click += (_, _) => Close();
 
-        var heading = new TextBlock { Text = Title, FontSize = 17, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 14) };
-        var label = new TextBlock { Text = "Zeitraum", Theme = Ui.Theme("FieldLabel"), Margin = new Thickness(0, 0, 0, 6) };
+        var heading = new TextBlock { Text = Title, FontSize = MatTokens.Type.FsLg, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 14) };
+        var label = new TextBlock { Text = "Zeitraum", Theme = Ui.Theme("MatText.FieldLabel"), Margin = new Thickness(0, 0, 0, 6) };
         var hint = new TextBlock
         {
             Text = SettingsService.Get().Cloud.IsConnected
                 ? "Gelöscht wird, was im Zeitraum zuletzt kopiert wurde – auch auf deinen anderen Geräten und in der Cloud. Favoriten und angeheftete Einträge bleiben."
                 : "Gelöscht wird, was im Zeitraum zuletzt kopiert wurde. Favoriten und angeheftete Einträge bleiben.",
             TextWrapping = TextWrapping.Wrap,
-            Foreground = Ui.Brush("TextMutedBrush"),
             Margin = new Thickness(0, 12, 0, 22),
-        };
+        }.Use(TextBlock.ForegroundProperty, "Mat.TextMuted");
 
         Content = new StackPanel
         {
@@ -109,14 +110,14 @@ public sealed class ClearHistoryDialog : ThemedWindow
         var number = new TextBlock
         {
             Text = count switch { 0 => "nichts", 1 => "1 Eintrag", _ => $"{count:N0} Einträge" },
-            Theme = Ui.Theme("MutedText"),
+            Theme = Ui.Theme("MatText.Muted"),
             VerticalAlignment = VerticalAlignment.Center,
         };
         Grid.SetColumn(number, 1);
 
         var item = new ListBoxItem
         {
-            Theme = Ui.Theme("ChoiceRow"),
+            Theme = Ui.Theme("ThixClip.ChoiceRow"),
             Tag = new RangeChoice(range, count),
             Content = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Children = { name, number } },
         };

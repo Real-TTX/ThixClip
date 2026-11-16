@@ -1,11 +1,10 @@
-using System.IO.Pipes;
 using System.Net.NetworkInformation;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using Avalonia.Styling;
 using Avalonia.Threading;
+using MatDesktop;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
@@ -17,7 +16,8 @@ namespace ThixClip;
 /// <summary>
 /// Start-up and end of ThixClip.
 ///  - Windows: the published ThixClip.exe is also its setup (RunSetupIfRequested).
-///  - One instance per user and data folder: a second start opens the window of the first one.
+///  - The look is MatDesktop's theme with ThixClip's accent (DESK-02).
+///  - One instance per user and data folder (MatSingleInstance, DESK-05): a second start opens the window of the first one.
 ///  - The main window is built once at start and only shown and hidden afterwards: the shortcut opens it at once.
 ///  - "--autostart" (sign-in) and "--tray" (after an update) start hidden in the tray / menu bar.
 /// </summary>
@@ -25,16 +25,11 @@ public partial class App : Application
 {
     public const string TrayArgument = "--tray";
 
-    // One instance per data folder: a development run with its own THIXCLIP_DATA_DIR does not meet the installed one.
-    private static readonly string InstanceSuffix = AppPaths.HasOverride
-        ? "." + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(AppPaths.DataDirectory.ToUpperInvariant())))[..16]
-        : "";
-
-    private static readonly string InstanceName = "ThixClip.SingleInstance" + InstanceSuffix;
-    private static readonly string ShowWindowPipeName = "ThixClip.ShowWindow" + InstanceSuffix + "." + Environment.UserName;
+    /// <summary>ThixClip's accent (IDENT-01): MatDesktop derives every accent token of light and dark from it.</summary>
+    public const string Accent = "#2F6FED";
 
     private IClassicDesktopStyleApplicationLifetime? _desktop;
-    private Mutex? _instanceMutex;
+    private MatSingleInstance? _instance;
     private TrayIcon? _trayIcon;
     private MainWindow? _mainWindow;
     private DispatcherTimer? _retentionTimer;
@@ -47,7 +42,15 @@ public partial class App : Application
 
     public static App Instance => (App)Current!;
 
-    public override void Initialize() => AvaloniaXamlLoader.Load(this);
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+
+        // ThixClip speaks German, the texts of MatDesktop (title bar, menu, tray, setup) too.
+        MatText.Language = "de";
+        MatTheme.Install(this, new MatThemeOptions(Accent));
+        Resources.MergedDictionaries.Add(new ThixClipControls());
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {
@@ -238,12 +241,13 @@ public partial class App : Application
         }
     }
 
-    public void ApplyTheme(ThemeChoice theme) => RequestedThemeVariant = theme switch
+    /// <summary>The setting "Erscheinungsbild": Wie das System, Hell, Dunkel (DESK-02).</summary>
+    public static void ApplyTheme(ThemeChoice theme) => MatTheme.SetAppearance(theme switch
     {
-        ThemeChoice.Light => ThemeVariant.Light,
-        ThemeChoice.Dark => ThemeVariant.Dark,
-        _ => ThemeVariant.Default,
-    };
+        ThemeChoice.Light => MatAppearance.Light,
+        ThemeChoice.Dark => MatAppearance.Dark,
+        _ => MatAppearance.System,
+    });
 
     /// <summary>"Beenden": ends the application.</summary>
     public void ExitApplication()
@@ -280,7 +284,7 @@ public partial class App : Application
         }
 
         Step("history", ClipService.Close);
-        _instanceMutex?.Dispose();
+        _instance?.Dispose();
         Log.Info($"ThixClip ended after {watch.ElapsedMilliseconds} ms");
         _desktop?.Shutdown(0);
     }
@@ -308,7 +312,7 @@ public partial class App : Application
                 return true;
             }
 
-            Setup.SetupWindow.Run(isUninstall: true, removeProgramFolder =>
+            Setup.ThixClipSetup.Run(isUninstall: true, removeProgramFolder =>
             {
                 if (removeProgramFolder)
                 {
@@ -348,7 +352,7 @@ public partial class App : Application
 #endif
         if (isPublishedBuild && !InstallService.IsInstalledExecutable(ExecutablePath))
         {
-            Setup.SetupWindow.Run(isUninstall: false, _ => EndProcess(0));
+            Setup.ThixClipSetup.Run(isUninstall: false, _ => EndProcess(0));
             return true;
         }
 
@@ -356,20 +360,21 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// The first instance owns the mutex and listens on a pipe; a second start knocks on the pipe (the first one shows
-    /// its window) and ends. On Windows the setup may also ask the running instance to end (ListenForExitSignal).
+    /// One instance per user and data folder (MatSingleInstance, DESK-05: a named mutex and a pipe, on macOS a lock file
+    /// and a socket): a second start hands its arguments to the first one, which shows its window, and ends. A development
+    /// run with its own THIXCLIP_DATA_DIR does not meet the installed one. On Windows the setup may also ask the running
+    /// instance to end (ListenForExitSignal).
     /// </summary>
     private bool TakeSingleInstance()
     {
-        _instanceMutex = new Mutex(initiallyOwned: true, InstanceName, out var isFirst);
-        if (!isFirst)
+        _instance = new MatSingleInstance(AppInfo.ProductName, AppPaths.HasOverride ? AppPaths.DataDirectory : null);
+        _instance.SecondStart += (_, _) => Ui.Post(() => ShowMainWindow());
+        if (!_instance.TryClaim(_desktop?.Args ?? []))
         {
-            KnockOnRunningInstance();
+            Log.Info("ThixClip runs already: its window was asked to show");
             return false;
         }
 
-        var listener = new Thread(ListenForSecondStarts) { IsBackground = true, Name = "ThixClip second start listener" };
-        listener.Start();
         if (OperatingSystem.IsWindows())
         {
             ListenForExitSignal();
@@ -378,44 +383,11 @@ public partial class App : Application
         return true;
     }
 
-    private static void KnockOnRunningInstance()
-    {
-        try
-        {
-            using var client = new NamedPipeClientStream(".", ShowWindowPipeName, PipeDirection.Out);
-            client.Connect(2000);
-            client.WriteByte(1);
-        }
-        catch (Exception exception) when (exception is IOException or TimeoutException or UnauthorizedAccessException)
-        {
-            Log.Warning($"Could not reach the running instance: {exception.Message}");
-        }
-    }
-
-    private void ListenForSecondStarts()
-    {
-        while (true)
-        {
-            try
-            {
-                using var server = new NamedPipeServerStream(ShowWindowPipeName, PipeDirection.In, 1);
-                server.WaitForConnection();
-                server.ReadByte();
-                Ui.Post(() => ShowMainWindow());
-            }
-            catch (IOException exception)
-            {
-                Log.Warning($"Second start listener: {exception.Message}");
-                Thread.Sleep(1000);
-            }
-        }
-    }
-
     /// <summary>The setup asks a running ThixClip to end (update, uninstall).</summary>
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private void ListenForExitSignal()
     {
-        if (InstanceSuffix.Length > 0)
+        if (AppPaths.HasOverride)
         {
             return; // a development run with its own data folder is none of the setup's business
         }

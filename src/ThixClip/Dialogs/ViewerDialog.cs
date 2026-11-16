@@ -7,6 +7,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using MatDesktop;
 using ThixClip.Controls;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
@@ -21,7 +22,7 @@ namespace ThixClip.Dialogs;
 /// Enter pastes, Ctrl/Cmd+C copies (the selection, when some text is selected), a link goes to the browser only on
 /// request, Esc closes. The caller does the pasting and copying (as from the list), so the rules stay in one place.
 /// </summary>
-public sealed class ViewerDialog : ThemedWindow
+public sealed class ViewerDialog : MatWindow
 {
     private readonly Action _paste;
     private readonly Action _copy;
@@ -40,7 +41,8 @@ public sealed class ViewerDialog : ThemedWindow
         ShowInTaskbar = false;
         MinWidth = 420;
         MinHeight = 300;
-        this[!BackgroundProperty] = this.GetResourceObservable("CardBrush").ToBinding();
+        Icon = Ui.AppIcon;
+        this.Use(BackgroundProperty, "Mat.Surface");
 
         var heading = new StackPanel
         {
@@ -48,14 +50,13 @@ public sealed class ViewerDialog : ThemedWindow
             Spacing = 10,
             Children =
             {
-                new IconView { Data = row.KindIcon, Width = 20, Height = 20, VerticalAlignment = VerticalAlignment.Center },
-                new TextBlock { Text = row.TypeText, FontSize = 17, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center },
+                new MatIcon { Icon = row.KindIcon, Size = 20 },
+                new TextBlock { Text = row.TypeText, FontSize = MatTokens.Type.FsLg, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center },
                 new TextBlock
                 {
                     Text = $"{row.SizeText} · kopiert {row.CopiedText}",
-                    Foreground = Ui.Brush("TextMutedBrush"),
                     VerticalAlignment = VerticalAlignment.Center,
-                },
+                }.Use(TextBlock.ForegroundProperty, "Mat.TextMuted"),
             },
         };
 
@@ -70,20 +71,18 @@ public sealed class ViewerDialog : ThemedWindow
 
         var frame = new Border
         {
-            CornerRadius = new CornerRadius(14),
             ClipToBounds = true,
             BorderThickness = new Thickness(1),
             Margin = new Thickness(0, 14, 0, 18),
             Child = _scroller,
         };
-        frame[!Border.BorderBrushProperty] = frame.GetResourceObservable("BorderBrush").ToBinding();
-        frame[!Border.BackgroundProperty] = frame.GetResourceObservable("SubtleBrush").ToBinding();
+        frame.Use(Border.BorderBrushProperty, "Mat.Border").Use(Border.BackgroundProperty, "Mat.Surface2").Use(Border.CornerRadiusProperty, "Mat.RadiusLg");
 
-        var pasteButton = new Button { Content = new IconLabel { Icon = Ui.Icon("Icon.Paste"), Text = "Einfügen" }, Theme = Ui.Theme("PrimaryButton") };
+        var pasteButton = new Button { Content = new IconLabel { Icon = "paste", Text = "Einfügen" }, Theme = Ui.Theme("MatButton.Primary") };
         pasteButton.Click += (_, _) => Paste();
         ToolTip.SetTip(pasteButton, "In die vorherige App einfügen (Enter)");
 
-        var copyButton = new Button { Content = new IconLabel { Icon = Ui.Icon("Icon.Copy"), Text = "Kopieren" } };
+        var copyButton = new Button { Content = new IconLabel { Icon = "copy", Text = "Kopieren" } };
         copyButton.Click += (_, _) => Copy();
         ToolTip.SetTip(copyButton, $"In die Zwischenablage kopieren ({Ui.CommandKey.Name}+C)");
 
@@ -100,7 +99,7 @@ public sealed class ViewerDialog : ThemedWindow
             _scroller.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
 
             _zoomLabel = new TextBlock();
-            var zoom = new Button { Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { new IconView { Data = Ui.Icon("Icon.Maximize"), Width = 16, Height = 16 }, _zoomLabel } } };
+            var zoom = new Button { Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { new MatIcon { Icon = "search" }, _zoomLabel } } };
             zoom.Click += (_, _) => ToggleZoom();
             ToolTip.SetTip(zoom, "Einpassen / Originalgröße (Leertaste oder Doppelklick)");
             actions.Children.Add(zoom);
@@ -121,7 +120,7 @@ public sealed class ViewerDialog : ThemedWindow
 
             if (ClipService.BrowserLink(row.Id) is { } link)
             {
-                var browser = new Button { Content = new IconLabel { Icon = Ui.Icon("Icon.External"), Text = "Im Browser öffnen" } };
+                var browser = new Button { Content = new IconLabel { Icon = "external", Text = "Im Browser öffnen" } };
                 browser.Click += (_, _) =>
                 {
                     Ui.OpenExternal(link);
@@ -131,7 +130,7 @@ public sealed class ViewerDialog : ThemedWindow
             }
         }
 
-        var close = new Button { Content = new IconLabel { Icon = Ui.Icon("Icon.Close"), Text = "Schließen" }, IsCancel = true };
+        var close = new Button { Content = new IconLabel { Icon = "x", Text = "Schließen" }, IsCancel = true };
         close.Click += (_, _) => Close();
         ActionBar.SetSeparated(close, true);
         actions.Children.Add(close);
@@ -215,7 +214,7 @@ public sealed class ViewerDialog : ThemedWindow
             _scroller.Content = new TextBlock
             {
                 Text = exception.Message,
-                Theme = Ui.Theme("MutedText"),
+                Theme = Ui.Theme("MatText.Muted"),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             };

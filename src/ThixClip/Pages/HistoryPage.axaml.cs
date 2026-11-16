@@ -4,6 +4,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using MatDesktop;
 using ThixClip.Controls;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
@@ -375,7 +376,7 @@ public partial class HistoryPage : UserControl
             SubtitleText.Text = _query.Search.Length > 0
                 ? $"{(count == 1 ? "1 Treffer" : $"{count:N0} Treffer")} für „{_query.Search}“"
                 : countText;
-            SubtitleText.Foreground = Ui.Brush("TextMutedBrush");
+            SubtitleText.Use(TextBlock.ForegroundProperty, "Mat.TextMuted");
         }
 
         var empty = count == 0;
@@ -388,12 +389,12 @@ public partial class HistoryPage : UserControl
         }
 
         var hotkey = HotkeyService.Display(SettingsService.Get().Hotkey);
-        (EmptyTitle.Text, EmptyText.Text, EmptyIcon.Data) = _query switch
+        (EmptyTitle.Text, EmptyText.Text, EmptyIcon.Icon) = _query switch
         {
-            { Search.Length: > 0 } => ($"Nichts gefunden für „{_query.Search}“", "Die Suche schaut in Texte, Links und den erkannten Text von Bildern.", Ui.Icon("Icon.Search")),
-            { Section: ClipSection.Favorites } => ("Noch keine Favoriten", "Markiere einen Eintrag mit dem Stern: Favoriten bleiben dauerhaft erhalten.", Ui.Icon("Icon.Star")),
-            { Section: ClipSection.Images } => ("Noch keine Bilder", "Kopierte Bilder und Screenshots erscheinen hier – ihr Text wird automatisch erkannt.", Ui.Icon("Icon.Image")),
-            _ => ("Noch nichts kopiert", $"Kopiere etwas – es erscheint sofort hier. Mit {hotkey} öffnest du ThixClip jederzeit.", Ui.Icon("Icon.Clipboard")),
+            { Search.Length: > 0 } => ($"Nichts gefunden für „{_query.Search}“", "Die Suche schaut in Texte, Links und den erkannten Text von Bildern.", "search"),
+            { Section: ClipSection.Favorites } => ("Noch keine Favoriten", "Markiere einen Eintrag mit dem Stern: Favoriten bleiben dauerhaft erhalten.", "star"),
+            { Section: ClipSection.Images } => ("Noch keine Bilder", "Kopierte Bilder und Screenshots erscheinen hier – ihr Text wird automatisch erkannt.", "image"),
+            _ => ("Noch nichts kopiert", $"Kopiere etwas – es erscheint sofort hier. Mit {hotkey} öffnest du ThixClip jederzeit.", "clipboard"),
         };
     }
 
@@ -466,7 +467,7 @@ public partial class HistoryPage : UserControl
                 Children =
                 {
                     new KeyCaps { Keys = keys },
-                    new TextBlock { Text = text, Theme = Ui.Theme("FaintText"), VerticalAlignment = VerticalAlignment.Center },
+                    new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center }.Themed("MatText.Faint"),
                 },
             });
         }
@@ -476,7 +477,7 @@ public partial class HistoryPage : UserControl
     public void ShowMessage(string message, bool isError = false)
     {
         SubtitleText.Text = message;
-        SubtitleText.Foreground = Ui.Brush(isError ? "DangerBrush" : "SuccessBrush");
+        SubtitleText.Use(TextBlock.ForegroundProperty, isError ? "Mat.DangerText" : "Mat.SuccessText");
         _isShowingMessage = true;
         _messageTimer?.Dispose();
         _messageTimer = DispatcherTimer.RunOnce(() =>

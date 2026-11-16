@@ -1,11 +1,13 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Threading;
+using MatDesktop;
 using ThixClip.Controls;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
@@ -23,40 +25,57 @@ namespace ThixClip;
 ///   Cmd/Ctrl+C copy, +D favourite, +P pin, +Delete (macOS Cmd+Backspace) delete, +F search, +1/2/3 sections,
 ///   +, settings, +B fold the menu, +O open the entry, +Shift+P pause / resume recording, +Shift+Delete (macOS Cmd+Shift+Backspace) "Verlauf löschen" as in a browser,
 ///   Alt+1 ... Alt+9 paste the n-th entry at once.
+/// The chrome is MatDesktop's: MatTitleBar (DESK-03) and MatNav (DESK-04, folds to a rail of 68 px).
 /// </summary>
-public partial class MainWindow : ThemedWindow
+public partial class MainWindow : MatWindow
 {
-    /// <summary>The folded menu: the icons with their margins (14 + 12 + 16 + 12 + 14).</summary>
-    private const double FoldedSidebarWidth = 68;
-
     private readonly HistoryPage _history = new();
     private readonly Lazy<SettingsPage> _settings = new(() => new SettingsPage());
     private readonly Lazy<AboutPage> _about = new(() => new AboutPage());
     private readonly DispatcherTimer _sizeTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
+    private readonly MatNavItem _navHistory;
+    private readonly MatNavItem _navImages;
+    private readonly MatNavItem _navFavorites;
+    private readonly MatNavItem _navSettings;
     private bool _isPasting;
 
     public MainWindow()
     {
         InitializeComponent();
+        Icon = Ui.AppIcon;
+        UseOwnTitleBar();
         var settings = SettingsService.Get();
         Width = settings.WindowWidth;
         Height = settings.WindowHeight;
-        IsSidebarCollapsed = settings.IsSidebarCollapsed;
 
-        if (OperatingSystem.IsMacOS())
+        // The title bar: the X (and Esc, Alt+F4) only hides, ThixClip keeps running in the tray / menu bar (DESK-06).
+        TitleBar.Logo = Ui.Logo;
+        TitleBar.CloseRequested += (_, e) =>
         {
-            // The traffic lights stay where macOS draws them; the logo moves right of them.
-            ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.PreferSystemChrome;
-            ExtendClientAreaTitleBarHeightHint = 68;
-            CaptionButtons.IsVisible = false;
-            HeaderGrid.Margin = new Thickness(84, 0, 18, 0);
-            HeaderGrid.ColumnDefinitions[0].Width = new GridLength(186);
-        }
-        else
+            e.Handled = true;
+            HideWindow(returnToPrevious: true);
+        };
+
+        // The menu: the sections, Settings below the line, the version at the foot (= About), folded or open as last time.
+        var command = Ui.CommandKey.Name;
+        _navHistory = new MatNavItem("clock", "Verlauf", $"{command}+1") { IsCurrent = true };
+        _navImages = new MatNavItem("image", "Bilder", $"{command}+2");
+        _navFavorites = new MatNavItem("star", "Favoriten", $"{command}+3");
+        _navSettings = new MatNavItem("settings", "Einstellungen", $"{command}+,");
+        Sidebar.Items.AddRange([_navHistory, _navImages, _navFavorites]);
+        Sidebar.Settings = _navSettings;
+        Sidebar.Version = AppInfo.Version;
+        Sidebar.Channel = AppInfo.Channel;
+        Sidebar.TitleBar = TitleBar;
+        Sidebar.IsFolded = settings.IsSidebarCollapsed;
+        Sidebar.ItemInvoked += (_, item) => OnNavInvoked(item);
+        Sidebar.AboutRequested += (_, _) => ShowAbout();
+        Sidebar.FoldChanged += (_, folded) =>
         {
-            ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome;
-            ExtendClientAreaTitleBarHeightHint = 0;
-        }
+            SettingsService.Remember(current => current with { IsSidebarCollapsed = folded });
+            ApplySidebar();
+        };
+        AddToMenuFoot();
 
         _history.PasteRequested += async (_, row) => await PasteAsync(row);
         _history.Copied += (_, _) =>
@@ -67,7 +86,6 @@ public partial class MainWindow : ThemedWindow
             }
         };
         PageHost.Content = _history;
-        NavHistory.IsChecked = true;
 
         // Searching is a filter over the history in memory: it runs on every key, there is nothing to wait for.
         SearchBox.TextChanged += (_, _) =>
@@ -92,15 +110,10 @@ public partial class MainWindow : ThemedWindow
         {
             _sizeTimer.Stop();
             _sizeTimer.Start();
-            MaximizeIcon.Data = Ui.Icon(WindowState == WindowState.Maximized ? "Icon.Restore" : "Icon.Maximize");
         };
 
         // A low window: the retention card shrinks to its choice, so the sections never hide behind it.
-        SizeChanged += (_, e) =>
-        {
-            RetentionDescription.IsVisible = RetentionHint.IsVisible = e.NewSize.Height >= 640;
-            ApplySidebarWidth(e.NewSize.Width);
-        };
+        SizeChanged += (_, e) => RetentionDescription.IsVisible = RetentionHint.IsVisible = e.NewSize.Height >= 640;
 
         RecordingService.Changed += (_, _) => Ui.Post(RefreshPause);
         UpdateCoordinator.Checked += (_, _) => Ui.Post(ApplySidebar);
@@ -114,11 +127,6 @@ public partial class MainWindow : ThemedWindow
         RefreshSidebar();
         SettingsService.Changed += (_, _) => Ui.Post(RefreshSidebar);
         SyncService.StatusChanged += (_, _) => Ui.Post(RefreshCloudStatus);
-        var command = Ui.CommandKey.Name;
-        ToolTip.SetTip(NavHistory, $"Verlauf ({command}+1)");
-        ToolTip.SetTip(NavImages, $"Bilder ({command}+2)");
-        ToolTip.SetTip(NavFavorites, $"Favoriten ({command}+3)");
-        ToolTip.SetTip(NavSettings, $"Einstellungen ({command}+,)");
     }
 
     /// <summary>Set by App when the application ends: then the window really closes.</summary>
@@ -131,14 +139,35 @@ public partial class MainWindow : ThemedWindow
     public bool IsActiveQuickWindow { get; private set; }
 
     /// <summary>The menu at the left is folded to its icons (Ctrl/Cmd+B, the button at its foot); remembered across starts.</summary>
-    public bool IsSidebarCollapsed { get; private set; }
+    public bool IsSidebarCollapsed => Sidebar.IsFolded;
 
-    public void ToggleSidebar()
-    {
-        IsSidebarCollapsed = !IsSidebarCollapsed;
-        ApplySidebar();
-        SettingsService.Remember(settings => settings with { IsSidebarCollapsed = IsSidebarCollapsed });
-    }
+    /// <summary>The button at the foot of the menu that folds and opens it.</summary>
+    public Button SidebarToggle => Sidebar.FoldButton;
+
+    /// <summary>The version at the foot of the menu (<c>Version 1.0.0 · release</c>, SETUP-07): it opens About.</summary>
+    public Button VersionButton => Sidebar.VersionButton;
+
+    /// <summary>The retention at the foot of the menu (hidden while the menu is folded).</summary>
+    public Border RetentionCard { get; private set; } = null!;
+
+    /// <summary>The state of the cloud at the foot of the menu (its words hidden while the menu is folded).</summary>
+    public TextBlock CloudText { get; private set; } = null!;
+
+    private ComboBox RetentionChoice { get; set; } = null!;
+
+    private TextBlock RetentionDescription { get; set; } = null!;
+
+    private TextBlock RetentionHint { get; set; } = null!;
+
+    private Button CloudStatus { get; set; } = null!;
+
+    private Ellipse CloudDot { get; set; } = null!;
+
+    private Button UpdateLink { get; set; } = null!;
+
+    private IconLabel UpdateLabel { get; set; } = null!;
+
+    public void ToggleSidebar() => Sidebar.IsFolded = !Sidebar.IsFolded;
 
     /// <summary>"Verlauf löschen" (Ctrl/Cmd+Shift+Delete as in a browser): the history page asks for the range.</summary>
     public async Task ClearHistoryAsync()
@@ -200,7 +229,7 @@ public partial class MainWindow : ThemedWindow
 
     public void ShowSettings(string? tab = null)
     {
-        SelectNav(NavSettings);
+        Sidebar.Select(_navSettings);
         PageHost.Content = _settings.Value;
         if (tab is not null)
         {
@@ -210,7 +239,7 @@ public partial class MainWindow : ThemedWindow
 
     public void ShowAbout()
     {
-        SelectNav(null);
+        Sidebar.Select(null);
         PageHost.Content = _about.Value;
     }
 
@@ -458,40 +487,79 @@ public partial class MainWindow : ThemedWindow
 
     public void ShowSection(ClipSection section)
     {
-        SelectNav(section switch
+        Sidebar.Select(section switch
         {
-            ClipSection.Images => NavImages,
-            ClipSection.Favorites => NavFavorites,
-            _ => NavHistory,
+            ClipSection.Images => _navImages,
+            ClipSection.Favorites => _navFavorites,
+            _ => _navHistory,
         });
         PageHost.Content = _history;
         _history.SetSection(section);
     }
 
-    private void SelectNav(ToggleButton? selected)
+    private void OnNavInvoked(MatNavItem item)
     {
-        foreach (var item in new[] { NavHistory, NavImages, NavFavorites, NavSettings })
+        if (item == _navSettings)
         {
-            item.IsChecked = item == selected;
+            ShowSettings();
+        }
+        else
+        {
+            ShowSection(item == _navImages ? ClipSection.Images : item == _navFavorites ? ClipSection.Favorites : ClipSection.History);
         }
     }
 
-    private void OnNavClick(object? sender, RoutedEventArgs e)
+    /// <summary>
+    /// What ThixClip shows at the foot of its menu above the version: the retention (mockup "Speicherdauer"), a waiting
+    /// update and the state of the cloud. MatNav has no place of its own for it, so it goes into the menu's dock above its
+    /// foot (the version and the fold button).
+    /// </summary>
+    private void AddToMenuFoot()
     {
-        switch ((sender as Control)?.Tag as string)
+        RetentionDescription = new TextBlock { Text = "Wie lange sollen Zwischenablage-Einträge gespeichert werden?" }.Themed("MatText.Muted");
+        RetentionChoice = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+        AutomationProperties.SetName(RetentionChoice, "Speicherdauer");
+        RetentionHint = new TextBlock { Text = "Favoriten und angeheftete Einträge bleiben immer." }.Themed("MatText.Faint");
+        RetentionCard = new Border
         {
-            case "Images":
-                ShowSection(ClipSection.Images);
-                break;
-            case "Favorites":
-                ShowSection(ClipSection.Favorites);
-                break;
-            case "Settings":
-                ShowSettings();
-                break;
-            default:
-                ShowSection(ClipSection.History);
-                break;
+            Padding = new Thickness(14, 12),
+            Child = new StackPanel
+            {
+                Spacing = 8,
+                Children =
+                {
+                    new TextBlock { Text = "Speicherdauer", FontWeight = FontWeight.SemiBold },
+                    RetentionDescription,
+                    RetentionChoice,
+                    RetentionHint,
+                },
+            },
+        }.Themed("MatCard");
+
+        UpdateLabel = new IconLabel { Icon = "download" };
+        UpdateLink = new Button { Content = UpdateLabel, IsVisible = false, HorizontalAlignment = HorizontalAlignment.Left }.Themed("MatButton.Link");
+        UpdateLink.Click += (_, _) => ShowAbout();
+
+        CloudDot = new Ellipse { Width = 8, Height = 8, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, -2, -1) };
+        CloudText = new TextBlock { FontSize = MatTokens.Type.FsSm, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 170 };
+        CloudStatus = new Button
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Padding = new Thickness(8, 0),
+            Content = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 9,
+                Children = { new Panel { Children = { new MatIcon { Icon = "cloud", Size = 18 }, CloudDot } }, CloudText },
+            },
+        }.Themed("MatButton.Ghost");
+        CloudStatus.Click += (_, _) => ShowSettings(SettingsPage.CloudTab);
+
+        var extras = new StackPanel { Spacing = 10, Margin = new Thickness(0, 12, 0, 10), Children = { RetentionCard, UpdateLink, CloudStatus } };
+        if (Sidebar.Child is DockPanel dock)
+        {
+            DockPanel.SetDock(extras, Dock.Bottom);
+            dock.Children.Insert(1, extras);
         }
     }
 
@@ -533,78 +601,40 @@ public partial class MainWindow : ThemedWindow
         }
 
         RetentionChoice.IsEnabled = !AccessPolicy.IsConfigurationLocked;
-        RetentionHint.Text = settings.Cloud.IsConnected
-            ? "Gilt für alle Geräte des Cloud-Kontos. Favoriten und angeheftete Einträge bleiben immer."
-            : "Favoriten und angeheftete Einträge bleiben immer.";
+        RetentionHint.Text = AccessPolicy.IsConfigurationLocked
+            ? "Von deiner Organisation festgelegt."
+            : settings.Cloud.IsConnected
+                ? "Gilt für alle Geräte des Cloud-Kontos. Favoriten und angeheftete Einträge bleiben immer."
+                : "Favoriten und angeheftete Einträge bleiben immer.";
         HotkeyCaps.Keys = settings.Hotkey;
         RefreshCloudStatus();
     }
 
     /// <summary>
-    /// Full menu: the sections with their names, the retention card, the cloud state and the version. Folded: the icons alone
-    /// (their tool tips name them), the cloud dot, an info icon for the about page; on Windows the header keeps the logo
-    /// above the icons, so the search field stays in line with the page.
+    /// Full menu: the retention, a waiting update and the cloud state in words. Folded (MatNav shows the icons and an info
+    /// icon for About): the cloud icon with its dot, the update as an icon; the fold button names its shortcut.
     /// </summary>
     private void ApplySidebar()
     {
         var folded = IsSidebarCollapsed;
-        foreach (var item in new[] { NavHistory, NavImages, NavFavorites, NavSettings })
-        {
-            ((IconLabel)item.Content!).IsTextVisible = !folded;
-        }
-
         RetentionCard.IsVisible = !folded;
         CloudText.IsVisible = !folded;
         CloudStatus.HorizontalContentAlignment = folded ? HorizontalAlignment.Center : HorizontalAlignment.Left;
-        BrandName.IsVisible = !folded || OperatingSystem.IsMacOS();
 
-        // An update waiting: the version says so (a dot when folded); a click shows "Über ThixClip" with the way to install it.
+        // An update waiting: a link above the cloud state (an icon when folded); a click shows About with the way to install it.
         var update = UpdateService.LastResult is { IsUpdateAvailable: true, Manifest: { } manifest } ? manifest.Version : null;
-        VersionButton.Content = folded
-            ? new Panel
-            {
-                Children =
-                {
-                    new IconView { Data = Ui.Icon(update is null ? "Icon.Info" : "Icon.Download"), Width = 18, Height = 18 },
-                    new Avalonia.Controls.Shapes.Ellipse
-                    {
-                        Width = 7, Height = 7, Fill = Ui.Brush("AccentBrush"), IsVisible = update is not null,
-                        HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, -2, -3, 0),
-                    },
-                },
-            }
-            : update is null ? $"Version {AppInfo.Version}" : $"Version {AppInfo.Version}  ·  Update";
-        ToolTip.SetTip(VersionButton, update is not null
-            ? $"Update auf {update} verfügbar – Über ThixClip"
-            : folded ? $"Über ThixClip – Version {AppInfo.Version}" : "Über ThixClip");
-        VersionButton.Margin = folded ? new Thickness(0) : new Thickness(8, 0, 0, 0);
-        VersionButton.HorizontalAlignment = folded ? HorizontalAlignment.Center : HorizontalAlignment.Left;
-        Grid.SetColumnSpan(VersionButton, folded ? 2 : 1);
+        UpdateLink.IsVisible = update is not null;
+        UpdateLabel.Text = update is null ? "" : $"Update auf {update}";
+        UpdateLabel.IsTextVisible = !folded;
+        UpdateLink.HorizontalAlignment = folded ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+        UpdateLink.Margin = folded ? new Thickness(0) : new Thickness(8, 0, 0, 0);
+        ToolTip.SetTip(UpdateLink, update is null ? null : $"Update auf {update} verfügbar – Über ThixClip");
+        AutomationProperties.SetName(UpdateLink, update is null ? "" : $"Update auf {update} verfügbar");
 
-        Grid.SetRow(SidebarToggle, folded ? 1 : 0);
-        Grid.SetColumn(SidebarToggle, folded ? 0 : 1);
-        Grid.SetColumnSpan(SidebarToggle, folded ? 2 : 1);
-        SidebarToggle.HorizontalAlignment = folded ? HorizontalAlignment.Center : HorizontalAlignment.Right;
-        SidebarToggle.Margin = folded ? new Thickness(0, 8, 0, 0) : new Thickness(0);
-        var action = folded ? "Menü ausklappen" : "Menü einklappen";
+        // DESK-07: the shortcut in the tooltip of the fold button
+        var action = MatText.Get(folded ? "nav.unfold" : "nav.fold");
         ToolTip.SetTip(SidebarToggle, $"{action} ({Ui.CommandKey.Name}+B)");
-        AutomationProperties.SetName(SidebarToggle, action);
-
-        ApplySidebarWidth(Bounds.Width > 0 ? Bounds.Width : Width);
         RefreshCloudStatus();
-    }
-
-    private void ApplySidebarWidth(double windowWidth)
-    {
-        var width = IsSidebarCollapsed ? FoldedSidebarWidth : windowWidth < 900 ? 210 : 248;
-        BodyGrid.ColumnDefinitions[0].Width = new GridLength(width);
-        if (OperatingSystem.IsMacOS())
-        {
-            return; // the traffic lights keep the header as it is
-        }
-
-        HeaderGrid.ColumnDefinitions[0].Width = new GridLength(width);
-        HeaderGrid.Margin = new Thickness(IsSidebarCollapsed ? 18 : 22, 0, 12, 0);
     }
 
     private void RefreshCloudStatus()
@@ -613,17 +643,17 @@ public partial class MainWindow : ThemedWindow
         var status = SyncService.Status;
         (CloudText.Text, var dot) = status.State switch
         {
-            CloudState.Online => ($"Synchronisiert · {cloud.UserName}", "SuccessBrush"),
-            CloudState.Syncing => ("Synchronisiere …", "AccentBrush"),
-            CloudState.Connecting => ("Verbinde …", "AccentBrush"),
-            CloudState.Offline => ("Cloud nicht erreichbar", "WarningBrush"),
-            CloudState.SignedOut => ("Abgemeldet – neu anmelden", "DangerBrush"),
-            _ => cloud.IsConnected ? ("Cloud verbunden", "SuccessBrush") : ("Mit Cloud verbinden", (string?)null),
+            CloudState.Online => ($"Synchronisiert · {cloud.UserName}", "Mat.Success"),
+            CloudState.Syncing => ("Synchronisiere …", "Mat.Accent"),
+            CloudState.Connecting => ("Verbinde …", "Mat.Accent"),
+            CloudState.Offline => ("Cloud nicht erreichbar", "Mat.Warning"),
+            CloudState.SignedOut => ("Abgemeldet – neu anmelden", "Mat.Danger"),
+            _ => cloud.IsConnected ? ("Cloud verbunden", "Mat.Success") : ("Mit Cloud verbinden", (string?)null),
         };
         CloudDot.IsVisible = dot is not null;
         if (dot is not null)
         {
-            CloudDot.Fill = Ui.Brush(dot);
+            CloudDot.Use(Shape.FillProperty, dot);
         }
 
         var tip = status.LastSync is { } last ? $"{status.Message} (zuletzt {last:HH:mm:ss})" : status.Message;
@@ -653,40 +683,28 @@ public partial class MainWindow : ThemedWindow
             area.Y + (int)((area.Height - Height * scaling) / 2.4));
     }
 
-    private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && e.Source is not TextBox && e.ClickCount == 1)
-        {
-            BeginMoveDrag(e);
-        }
-    }
-
-    private void OnHeaderDoubleTapped(object? sender, TappedEventArgs e)
-    {
-        if (e.Source is Border or Grid or StackPanel)
-        {
-            OnMaximizeClick(sender, e);
-        }
-    }
-
-    private void OnMinimizeClick(object? sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
-
-    private void OnMaximizeClick(object? sender, RoutedEventArgs e) =>
-        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
-
-    private void OnCloseClick(object? sender, RoutedEventArgs e) => HideWindow(returnToPrevious: true);
-
     /// <summary>
-    /// The pause button of the header: recording shows "Pausieren" (quiet), a pause an amber "Fortsetzen" with its end,
-    /// so nobody forgets that copies are not recorded right now.
+    /// The pause button of the header: recording shows "Pausieren" (quiet), a pause "Fortsetzen" with its end in the
+    /// colours of a warning, so nobody forgets that copies are not recorded right now.
     /// </summary>
     private void RefreshPause()
     {
         var paused = RecordingService.IsPaused;
-        PauseButton.Theme = paused ? Ui.Theme("WarningButton") : null; // null: the normal framed button, always in sight
-        PauseLabel.Icon = Ui.Icon(paused ? "Icon.Play" : "Icon.Pause");
+        if (paused)
+        {
+            PauseButton.Themed("ThixClip.PausedButton");
+        }
+        else
+        {
+            PauseButton.ClearValue(ThemeProperty); // the normal framed button, always in sight
+        }
+
+        PauseLabel.Icon = paused ? "play" : "pause";
         var until = RecordingService.PausedUntil;
-        PauseLabel.Text = !paused ? "Pausieren" : until is { } end ? $"Fortsetzen · pausiert bis {end.ToLocalTime():HH:mm}" : $"Fortsetzen · {RecordingService.Describe().ToLowerInvariant()}";
+        var state = RecordingService.Describe();
+        PauseLabel.Text = !paused ? "Pausieren"
+            : until is { } end ? $"Fortsetzen · pausiert bis {end.ToLocalTime():HH:mm}"
+            : $"Fortsetzen · {(state.Length > 0 ? char.ToLowerInvariant(state[0]) + state[1..] : state)}";
         ToolTip.SetTip(PauseButton, paused ? $"Aufzeichnung fortsetzen ({Ui.PauseShortcut})" : $"Aufzeichnung pausieren … ({Ui.PauseShortcut})");
         AutomationProperties.SetName(PauseButton, paused ? "Aufzeichnung fortsetzen" : "Aufzeichnung pausieren");
     }
@@ -694,10 +712,4 @@ public partial class MainWindow : ThemedWindow
     private async void OnPauseClick(object? sender, RoutedEventArgs e) => await App.Instance.TogglePauseAsync(this);
 
     private void OnHotkeyBadgeClick(object? sender, RoutedEventArgs e) => ShowSettings(SettingsPage.GeneralTab);
-
-    private void OnCloudStatusClick(object? sender, RoutedEventArgs e) => ShowSettings(SettingsPage.CloudTab);
-
-    private void OnVersionClick(object? sender, RoutedEventArgs e) => ShowAbout();
-
-    private void OnSidebarToggleClick(object? sender, RoutedEventArgs e) => ToggleSidebar();
 }

@@ -51,12 +51,13 @@ public sealed class ClipRowViewModel(ClipEntry entry) : INotifyPropertyChanged
 
     public bool IsPinned => _entry.IsPinned;
 
-    public Geometry KindIcon => Ui.Icon(_entry.Kind switch
+    /// <summary>The icon of the kind, a name of the sprite (MatIcon).</summary>
+    public string KindIcon => _entry.Kind switch
     {
-        ClipKind.Link => "Icon.Link",
-        ClipKind.Image => "Icon.Image",
-        _ => "Icon.Text",
-    });
+        ClipKind.Link => "link",
+        ClipKind.Image => "image",
+        _ => "file-text",
+    };
 
     /// <summary>Two lines of the text (white space folded), or what an image shows.</summary>
     public string PreviewText

@@ -12,8 +12,10 @@ fully usable with the keyboard** (owner's requirement): the main window is built
 filters in memory on every key. UI language German; code, comments and identifiers English. The mockup of the main
 window is `docs/mockups/hauptfenster.png`.
 
-Stack: **.NET 10**, C#. Desktop: **Avalonia 11.3** (Fluent underneath our own look), SQLite (Microsoft.Data.Sqlite),
-SkiaSharp. Cloud: ASP.NET Core **Razor Pages**, EF Core + **PostgreSQL**, **MatUi** of the sister project MatDesign.
+Stack: **.NET 10**, C#. Desktop: **Avalonia 11.3** with **MatDesktop** (the desktop toolkit of the sister project MatDesign:
+Fluent in the colours of the tokens, title bar, menu, tray, setup window), SQLite (Microsoft.Data.Sqlite), SkiaSharp.
+Cloud: ASP.NET Core **Razor Pages**, EF Core + **PostgreSQL**, **MatUi** of MatDesign. The desktop app follows MatDesign's
+rules DESK, TRAY and SETUP (MatDesign docs/DESKTOP.md).
 
 ## Build / run / test
 
@@ -31,19 +33,24 @@ SkiaSharp. Cloud: ASP.NET Core **Razor Pages**, EF Core + **PostgreSQL**, **MatU
   Windows screenshots of the real window need a real screen; a disconnected RDP session has a 640x480 display and
   rejects `SendInput` – use the headless UI tests there.
 - Icons: `cd tools && npm install && node render-icons.js` renders `branding/*.svg` (installed Edge, headless) into
-  `branding/png`, `src/ThixClip/Assets`, `src/ThixClip.Cloud/wwwroot/img`. `node tools/avalonia-icons.js` turns MatDesign's
-  icon sprite into `src/ThixClip/Themes/Icons.axaml` (never edit that file by hand).
+  `branding/png`, `src/ThixClip/Assets`, `src/ThixClip.Cloud/wwwroot/img`. The line icons of the app are MatDesktop's
+  (every symbol of MatDesign's sprite, `<mat:MatIcon Icon="copy"/>`); an icon the sprite lacks is added to MatDesign first.
+- **MatDesktop** (`src/ThixClip/MatDesktop/`, compiled into the app) is a COPY from MatDesign: never edit it here. Change it in
+  MatDesign and copy it again there with `node tools/matdesktop-copy.js <path>/ThixClip/src/ThixClip`; the copy writes
+  `matdesktop.version` (the hash of every file) and `UiTests.The_copy_of_MatDesktop_is_unchanged` holds the files to it. Its
+  README (MatDesign `src/MatDesktop/README.md`) lists the resource keys and control themes.
 - The Windows publish (win-x64) is a **trimmed** single file (`TrimMode=partial`: only trimmable libraries shrink, our own
   assemblies stay whole; about 38 MB). No `dynamic`, no built-in COM: COM goes through `[GeneratedComInterface]`
   (`Platform/Windows/ShellLink`). `ThixClip.exe --self-test <report>` checks the published program (JSON, SQLite, Skia,
   token store, OCR, COM, every window) in a temporary data folder; CI runs it after every Windows publish.
 - **Snapshots:** `dotnet run --project src/ThixClip -- --snapshot docs/images` (or `ThixClip.exe --snapshot <folder>`) draws
   the windows headless (Avalonia.Headless + Skia, fonts of the machine) into PNGs, light and dark, 1x, natural size:
-  `setup-{welcome,progress,finish,update,uninstall}`, `main-{history,settings,about,folded}`, `dialog-pause`, `toast`
-  (`-light`/`-dark`) and `tray-icon-{windows,macos}[-paused]` (64 px). Temporary data folder with `SampleHistory`, pinned
+  `setup-{welcome,options,progress,finish,update,uninstall}`, `main-{history,settings,about,folded,paused}`,
+  `dialog-{pause,clear-history,viewer}`, `toast` (`-light`/`-dark`) and `tray-icon-{windows,macos}[-paused]` (64 px). Temporary data folder with `SampleHistory`, pinned
   `AppClock` (12.11.2026 14:32), `AppInfo.Pin` (1.0.0, release, ANNA-PC), clipboard/tokens/policies/autostart in memory; no
-  tray, hotkey, network or update check. Same output every run; MatDesign shows them. `UiTests` runs it in-process. A new
-  window or page: add it to `Snapshot.cs` (and `FileNames`), look at the pictures.
+  tray, hotkey, network or update check. Same output every run; MatDesign shows them and the README uses them. `UiTests` runs
+  it in-process. A new window or page: add it to `Snapshot.cs` (and `FileNames`), look at the pictures. Pictures for the
+  README or MatDesign come from here only: the screenshots of the UI tests show the real computer name and today's date.
 - `scripts/package-macos.sh` builds `ThixClip.app` (Info.plist with `LSUIElement`, icns, ad-hoc signature), the update zip and the dmg.
 
 ## Map
@@ -72,25 +79,35 @@ src/ThixClip.Core     (no UI) models, business layer (static classes), infrastru
                       Mac/MacHotkey (Carbon),
                       Mac/ObjC (objc_msgSend helpers)
 src/ThixClip          (Avalonia app)
-  Program / App       start-up: ProblemReports first, self test, Windows setup mode, single instance (mutex + pipe), services, tray,
-                      hotkey, prewarm, timers, TogglePauseAsync (the pause dialog for header, tray, settings, Ctrl/Cmd+Shift+P)
+  Program / App       start-up: ProblemReports first, self test, Windows setup mode, single instance (MatSingleInstance), services, tray,
+                      hotkey, prewarm, timers, TogglePauseAsync (the pause dialog for header, tray, settings, Ctrl/Cmd+Shift+P);
+                      Initialize installs MatDesktop's theme with ThixClip's accent (App.Accent, #2F6FED), MatText in German, ThixClipControls
+  MatDesktop/         COPY of MatDesign's desktop toolkit (never edited here, see Build / run / test): MatTheme, MatWindow, MatTitleBar, MatNav,
+                      MatIcon, MatSettingRow/MatFormField, MatTray/MatTrayMenu/MatTrayIcons, MatNotification, MatSetupWindow, MatVersion ...
+  Ui                  helpers: app icon and logo, Theme(key) for object initializers, the UI thread, opening addresses, texts of times
   UiWatchdog          knocks on the UI thread every second; 8 s without an answer = hang report (ProblemReports.WriteHang)
   SelfTest            --self-test of the published program (CI)
   Snapshot            --snapshot <folder>: every window as PNG, headless (see Build / run / test)
-  MainWindow          header (search, pause button: framed "Pausieren" / amber "Fortsetzen · pausiert bis …", shortcut chip, own caption buttons on Windows / traffic lights on macOS), sidebar (sections,
-                      retention card, cloud state, version = about; folds to a 68 px icon rail with Ctrl/Cmd+B or the button at its
-                      foot, remembered in AppSettings.IsSidebarCollapsed), page host; ALL keyboard handling (OnPreviewKeyDown)
+  MainWindow          a MatWindow: MatTitleBar (logo and word mark; search, pause button: framed "Pausieren" / warning "Fortsetzen · pausiert bis …",
+                      shortcut chip; caption buttons on Windows / traffic lights on macOS), MatNav (sections, Settings; at its foot the
+                      retention card, a waiting update and the cloud state – put into the menu's dock above its foot, MatNav has no slot –,
+                      "Version x · channel" = about; folds to a 68 px rail with Ctrl/Cmd+B or the button at its foot, remembered in
+                      AppSettings.IsSidebarCollapsed), page host; ALL keyboard handling (OnPreviewKeyDown)
   Pages/              HistoryPage (title and filters in one line; list grouped by day + detail pane with ONE row of icon buttons
                       Einfügen, Kopieren, Öffnen, Anheften, Favorit … Löschen; Ctrl/Cmd+click, +O or a click on the image opens the viewer; Delete takes the chosen
                       entry and keeps the focus; count / notes bottom right; the chosen row is scrolled into view only after
                       layout (BringIntoView), else the virtualizing panel leaves a growing gap; adaptive below 820 px), ClipRowViewModel, SettingsPage
                       (tabs Allgemein | Aufzeichnung | Cloud | Updates | Erweitert), AboutPage (update card -> Einstellungen › Updates)
-  Controls/           ONE code base per control: IconView (line icons), IconLabel, ActionBar (left, positive -> negative, Separated
-                      gap before delete), SettingRow, FormField (shows BusinessException.Field), InfoBar, KeyCaps, HotkeyRecorder
-  Themes/             Theme.axaml (light + dark theme dictionaries, ControlThemes), Icons.axaml (generated)
-  Tray/               TrayIcon (menu: open, last five entries, pause …/resume, sync, settings, update, quit; paused = icon with a pause
-                      badge drawn by TrayIconImages), NotificationToast
-  Setup/              SetupWindow (Windows install / update / uninstall assistant; autostart, desktop shortcut, auto update on)
+  Controls/           ThixClip's own, ONE code base per control: IconLabel (a sprite icon and a text; filled for a chosen star or pin),
+                      ActionBar (left, positive -> negative, Separated gap before delete), FormErrors (FormErrors.Field on a MatFormField:
+                      shows BusinessException.Field), InfoBar (like mat-alert), KeyCaps (MatKeyCap), HotkeyRecorder
+  Themes/             ThixClipControls.axaml: control themes of what only ThixClip has (ClipList, ClipRow, ChoiceRow, PausedButton); no colour
+                      of its own, every value a MatDesktop resource
+  Tray/               TrayIcon: MatTrayMenu + MatTray (TRAY-01 order: "ThixClip 1.0.0", the state, "ThixClip öffnen", own items = last five
+                      entries, pause …/resume, sync; Einstellungen, Log-Ordner, update, Beenden); state Läuft (green dot) or paused (amber
+                      dot with a pause sign, MatState.Custom); notifications are MatNotification
+  Setup/              ThixClipSetup: MatSetupWindow for install (Welcome → Options → Progress → Finish), update and uninstall; the work is
+                      InstallService on a background task
   Dialogs/            ConfirmDialog, ClearHistoryDialog ("Verlauf löschen" as in a browser: range list with counts, Enter deletes;
                       Ctrl/Cmd+Shift+Delete or the button below the list), PauseDialog (how long), ViewerDialog ("Öffnen" inside ThixClip: image fitted / 100 %, text selectable; Enter pastes, Ctrl/Cmd+C copies, Esc closes – no other program, no file), ProblemReportDialog (crash / hang
                       of the last run: the report to read and copy, the log folder)
@@ -103,7 +120,8 @@ tests/ThixClip.Tests  desktop tests (see above); tests/ThixClip.Cloud.Tests, tes
 - **Microsoft C# coding conventions**, file-scoped namespaces, `_camelCase` fields, human-readable names, early returns.
 - **Business layer = static classes.** UI never touches `HistoryStore`, `SettingsStore`, files, registry or HTTP; page models
   never query. Validation **and permission checks** (AccessPolicy, connection state; in the cloud: the acting user) live in
-  the business layer. Errors are `BusinessException(message, field)`; the UI shows them at the `FormField` with that `Field`.
+  the business layer. Errors are `BusinessException(message, field)`; the UI shows them at the `MatFormField` whose
+  `controls:FormErrors.Field` is that `Field`.
 - **Relational rules** (Postgres and the local SQLite): PascalCase tables/columns, key `Id` (64 bit), `CreateDate`,
   `CreateUserId`, `UpdateDate`, `UpdateUserId`, `UpdateState` (0 deleted, 1 created, 2 updated) for soft deletes / tombstones,
   a `Token` uuid where a key is a secret (UserSession, Device).
@@ -114,8 +132,12 @@ tests/ThixClip.Tests  desktop tests (see above); tests/ThixClip.Cloud.Tests, tes
 - **UI rules:** toolbar above lists (search, filter, sort), actions below, left-aligned, positive to negative, delete with a
   gap; buttons in one row (`Einfügen`, `Kopieren`, `Anheften` … gap … `Löschen`); icons where they help; tabs for areas of one
   item; hide what does not apply (OCR section only for images); cards keep their distance; the about page opens from the
-  version bottom left. Colours only from `Themes/Theme.axaml` via `DynamicResource` (light and dark). Icon-only buttons get
-  `AutomationProperties.Name`. Several instances of a control on one page must work (no static state in controls).
+  version bottom left. **Colours only from MatDesktop's theme** (DESK-02): `{DynamicResource Mat.Surface}`, `Mat.TextMuted`,
+  `Mat.AccentText` … in XAML, `control.Use(property, "Mat.TextMuted")` in code (a brush looked up once would not follow a
+  switch of light and dark); named looks are MatDesktop's control themes (`MatButton.Primary`, `.Danger`, `.Icon`, `.Link`,
+  `MatText.PageTitle`, `MatCard` …), `Themed(key)` in code. No literal colour (`UiTests.No_window_writes_a_colour_of_its_own`):
+  the only value ThixClip gives is its accent. Selected is a tint with the accent as its line, never a bar (COLOR-08). The
+  version reads `Version x · channel` everywhere (MatVersion, SETUP-07). Icon-only buttons get `AutomationProperties.Name`. Several instances of a control on one page must work (no static state in controls).
 - **Avalonia:** ControlThemes cannot contain descendant selectors (`^ Border.row` throws at runtime) – put those styles on
   the page. No `DispatcherTimer` debouncing on hot paths (search runs per key; refreshes coalesce through `Dispatcher.Post`).
 - **Platforms:** one code base. Differences live in Core behind `OperatingSystem.IsWindows()/IsMacOS()` or Windows/macOS-only

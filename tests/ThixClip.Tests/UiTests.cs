@@ -5,6 +5,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using MatDesktop;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
@@ -270,18 +271,25 @@ public sealed class UiTests
         Assert.True(RecordingService.IsPaused);
         Assert.InRange(RecordingService.PausedUntil!.Value - DateTimeOffset.UtcNow, TimeSpan.FromMinutes(59), TimeSpan.FromMinutes(60.1));
         Assert.StartsWith("Fortsetzen · pausiert bis ", window.PauseLabel.Text);
+        Assert.Same(Ui.Theme("ThixClip.PausedButton"), window.PauseButton.Theme);
         Save(window, "paused");
 
-        // The tray icon gets its pause badge (drawn from the normal icon).
-        foreach (var (asset, template) in new[] { ("tray-windows.ico", false), ("tray-macos.png", true) })
+        // The tray shows the pause as a state of ThixClip's own (TRAY-02): amber with a pause sign, a pause shape on the
+        // template image of macOS, and in words (the second line of the menu, the tooltip).
+        var state = Tray.TrayIcon.State;
+        Assert.Equal(MatStateKind.Custom, state.Kind);
+        Assert.Equal(MatStateMark.Pause, state.TemplateMark);
+        Assert.StartsWith("Pausiert bis ", state.Word);
+        Assert.StartsWith("ThixClip: Pausiert bis ", state.Tooltip("ThixClip"));
+        foreach (var template in new[] { false, true })
         {
-            using var source = Avalonia.Platform.AssetLoader.Open(new Uri($"avares://ThixClip/Assets/{asset}"));
-            var png = Tray.TrayIconImages.PausedPng(source, template);
-            Assert.NotNull(png);
-            Assert.NotNull(Tray.TrayIconImages.WithPauseBadge(new Uri($"avares://ThixClip/Assets/{asset}"), template));
+            using var mark = Tray.TrayIcon.Mark(template);
+            var png = MatTrayIcons.Png(mark, state, template);
+            Assert.NotEmpty(png);
             if (ShotFolder is not null)
             {
-                File.WriteAllBytes(Path.Combine(ShotFolder, $"tray-paused-{(template ? "macos" : "windows")}.png"), png!);
+                Directory.CreateDirectory(ShotFolder);
+                File.WriteAllBytes(Path.Combine(ShotFolder, $"tray-paused-{(template ? "macos" : "windows")}.png"), png);
             }
         }
 
@@ -290,6 +298,7 @@ public sealed class UiTests
         Settle(window);
         Assert.False(RecordingService.IsPaused);
         Assert.Equal("Pausieren", window.PauseLabel.Text);
+        Assert.Null(window.PauseButton.Theme); // the normal framed button again
         window.Close();
     }
 
@@ -459,6 +468,94 @@ public sealed class UiTests
         Assert.Null(AppClock.Pinned);
         Assert.NotEqual(Snapshot.Version, AppInfo.Version);
         Assert.Equal(7, ClipService.Count);
+    }
+
+    [AvaloniaFact]
+    public void The_version_reads_the_same_everywhere()
+    {
+        using var data = new TestData();
+        var expected = MatVersion.Format(AppInfo.Version, AppInfo.Channel);
+        Assert.Matches(@"^Version \S+ · (release|nightly|local)$", expected);
+
+        // SETUP-07: at the foot of the menu (it opens About), in About and in the footer of the setup.
+        var window = Open();
+        Assert.Equal(expected, window.VersionButton.Content);
+        window.VersionButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Settle(window);
+        Assert.Equal(expected, Assert.IsType<AboutPage>(window.PageHost.Content).VersionText.Text);
+        window.Close();
+
+        if (OperatingSystem.IsWindows())
+        {
+            foreach (var (uninstall, update) in new[] { (false, false), (false, true), (true, false) })
+            {
+                var setup = Setup.ThixClipSetup.Create(uninstall, update, AppInfo.Version, @"C:\Users\Anna\AppData\Local\Programs\ThixClip", _ => Task.CompletedTask);
+                Assert.Equal(expected, setup.VersionText.Text);
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public void The_tray_menu_has_the_order_of_every_tray()
+    {
+        using var data = new TestData();
+        SampleHistory.Create();
+        using var tray = new Tray.TrayIcon(App.Instance);
+        var roles = tray.Menu.Build().Select(entry => entry.Role).ToList();
+
+        // TRAY-01: name and version, the state, Open, ThixClip's own items, Settings and the log folder, Quit last; no Uninstall.
+        Assert.Equal(
+            [MatTrayRole.Title, MatTrayRole.State, MatTrayRole.Separator, MatTrayRole.Open, MatTrayRole.Separator],
+            roles.Take(5));
+        Assert.Equal([MatTrayRole.Settings, MatTrayRole.LogFolder, MatTrayRole.Separator, MatTrayRole.Quit], roles.TakeLast(4));
+        var entries = tray.Menu.Build();
+        Assert.Equal($"ThixClip {AppInfo.Version}", entries[0].Text);
+        Assert.Equal("Läuft", entries[1].Text);
+        Assert.Equal("ThixClip öffnen", entries[3].Text);
+        Assert.Contains(entries, entry => entry.Role == MatTrayRole.Own && entry.Text.StartsWith("Produktmeeting morgen um 10 Uhr", StringComparison.Ordinal));
+        Assert.Equal("Beenden", entries[^1].Text);
+
+        // An update waiting adds "Update installieren …" before the separator above Quit.
+        tray.SetUpdateAvailable(true);
+        Assert.Equal(MatTrayRole.InstallUpdate, tray.Menu.Build()[^3].Role);
+    }
+
+    [Fact]
+    public void No_window_writes_a_colour_of_its_own()
+    {
+        // DESK-02: every colour comes from MatDesktop's theme; the one value ThixClip gives is its accent (App.Accent). The self
+        // test draws a black-on-white picture for the OCR engine, which is not a window.
+        var source = Path.Combine(Repository.Root, "src", "ThixClip");
+        var files = Directory.EnumerateFiles(source, "*.*", SearchOption.AllDirectories)
+            .Where(file => file.EndsWith(".cs", StringComparison.Ordinal) || file.EndsWith(".axaml", StringComparison.Ordinal))
+            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}MatDesktop{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                           && !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                           && !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                           && Path.GetFileName(file) != "SelfTest.cs");
+        var literal = new System.Text.RegularExpressions.Regex(@"#[0-9A-Fa-f]{6}\b|#[0-9A-Fa-f]{8}\b|Color\.(Parse|FromRgb|FromArgb)|Colors\.\w+|Brushes\.\w+");
+        var findings = files
+            .SelectMany(file => File.ReadAllLines(file).Select((line, index) => (file, line, index)))
+            .Where(item => literal.IsMatch(item.line) && !item.line.Contains("public const string Accent", StringComparison.Ordinal))
+            .Select(item => $"{Path.GetRelativePath(source, item.file)}:{item.index + 1}: {item.line.Trim()}")
+            .ToList();
+        Assert.Empty(findings);
+    }
+
+    [Fact]
+    public void The_copy_of_MatDesktop_is_unchanged()
+    {
+        // MatDesktop is copied from MatDesign (node tools/matdesktop-copy.js src/ThixClip there) and never edited here: every
+        // file matches the hash its manifest names.
+        var folder = Path.Combine(Repository.Root, "src", "ThixClip", "MatDesktop");
+        var lines = File.ReadAllLines(Path.Combine(folder, "matdesktop.version"));
+        Assert.StartsWith("MatDesktop ", lines[0]);
+        foreach (var line in lines.Skip(1).Where(line => line.Length > 0))
+        {
+            var (hash, file) = (line[..64], line[66..]);
+            var text = File.ReadAllText(Path.Combine(folder, file)).Replace("\r\n", "\n", StringComparison.Ordinal);
+            var actual = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text)));
+            Assert.True(hash == actual, $"MatDesktop/{file} was changed: copy it again from MatDesign instead of editing it");
+        }
     }
 
     private static (int Width, int Height) PictureSize(string folder, string name)

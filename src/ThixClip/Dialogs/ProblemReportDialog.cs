@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Media;
+using MatDesktop;
 using ThixClip.Controls;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
@@ -12,7 +13,7 @@ namespace ThixClip.Dialogs;
 /// Shown at start when ThixClip crashed or hung last time (<see cref="ProblemReports"/>): what happened, the whole report
 /// to read and copy, the log folder. Several reports: the newest one, the others are named.
 /// </summary>
-public sealed class ProblemReportDialog : ThemedWindow
+public sealed class ProblemReportDialog : MatWindow
 {
     private ProblemReportDialog(IReadOnlyList<ProblemReport> reports)
     {
@@ -23,7 +24,8 @@ public sealed class ProblemReportDialog : ThemedWindow
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Topmost = true;
-        this[!BackgroundProperty] = this.GetResourceObservable("CardBrush").ToBinding();
+        Icon = Ui.AppIcon;
+        this.Use(BackgroundProperty, "Mat.Surface");
 
         var heading = new StackPanel
         {
@@ -32,8 +34,8 @@ public sealed class ProblemReportDialog : ThemedWindow
             Margin = new Thickness(0, 0, 0, 8),
             Children =
             {
-                new IconView { Data = Ui.Icon("Icon.Warning"), Width = 22, Height = 22, Foreground = Ui.Brush(report.IsHang ? "WarningBrush" : "DangerBrush") },
-                new TextBlock { Text = Title, FontSize = 17, FontWeight = FontWeight.SemiBold, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center },
+                new MatIcon { Icon = "alert", Size = 22 }.Use(MatIcon.ForegroundProperty, report.IsHang ? "Mat.WarningText" : "Mat.DangerText"),
+                new TextBlock { Text = Title, FontSize = MatTokens.Type.FsLg, FontWeight = FontWeight.SemiBold, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center },
             },
         };
 
@@ -43,9 +45,8 @@ public sealed class ProblemReportDialog : ThemedWindow
             Text = $"Am {report.Time:dd.MM.yyyy} um {report.Time:HH:mm} Uhr. Der Bericht unten hilft, die Ursache zu finden – kopiere ihn oder öffne den Protokollordner." +
                    (others > 0 ? $" Dazu {(others == 1 ? "ein weiterer Bericht" : $"{others} weitere Berichte")} seit dem letzten Start." : ""),
             TextWrapping = TextWrapping.Wrap,
-            Foreground = Ui.Brush("TextMutedBrush"),
             Margin = new Thickness(0, 0, 0, 12),
-        };
+        }.Use(TextBlock.ForegroundProperty, "Mat.TextMuted");
 
         var details = new TextBox
         {
@@ -53,25 +54,25 @@ public sealed class ProblemReportDialog : ThemedWindow
             IsReadOnly = true,
             TextWrapping = TextWrapping.NoWrap,
             AcceptsReturn = true,
-            FontFamily = new FontFamily("Cascadia Mono, Consolas, Menlo, monospace"),
-            FontSize = 12,
+            FontSize = MatTokens.Type.FsXs,
             Height = 280,
             Margin = new Thickness(0, 0, 0, 18),
         };
+        details.Use(TextBox.FontFamilyProperty, "Mat.Mono");
         ScrollViewer.SetHorizontalScrollBarVisibility(details, Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
         AutomationProperties.SetName(details, "Bericht");
 
-        var copy = new Button { Content = new IconLabel { Icon = Ui.Icon("Icon.Copy"), Text = "Bericht kopieren" }, Theme = Ui.Theme("PrimaryButton") };
+        var copy = new Button { Content = new IconLabel { Icon = "copy", Text = "Bericht kopieren" }, Theme = Ui.Theme("MatButton.Primary") };
         copy.Click += (_, _) =>
         {
             ClipService.CopyText(report.Text);
             ((IconLabel)copy.Content!).Text = "Kopiert";
         };
 
-        var folder = new Button { Content = new IconLabel { Icon = Ui.Icon("Icon.External"), Text = "Protokollordner öffnen" } };
+        var folder = new Button { Content = new IconLabel { Icon = "external", Text = "Protokollordner öffnen" } };
         folder.Click += (_, _) => Ui.OpenExternal(AppPaths.LogDirectory);
 
-        var close = new Button { Content = new IconLabel { Icon = Ui.Icon("Icon.Close"), Text = "Schließen" }, IsCancel = true, IsDefault = true };
+        var close = new Button { Content = new IconLabel { Icon = "x", Text = "Schließen" }, IsCancel = true, IsDefault = true };
         close.Click += (_, _) => Close();
 
         Content = new StackPanel

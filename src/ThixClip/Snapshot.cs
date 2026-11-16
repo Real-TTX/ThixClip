@@ -1,9 +1,9 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
-using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using MatDesktop;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
@@ -14,7 +14,7 @@ namespace ThixClip;
 /// <summary>
 /// "ThixClip --snapshot &lt;folder&gt;": draws the windows of ThixClip into PNG files without a screen (Avalonia headless
 /// with Skia, the real windows, themes and fonts of the machine), in light and dark, at 1x and their natural size – the
-/// pictures of the design system and of docs/images. It works in a temporary data folder (Program sets it) filled with
+/// pictures of the design system and of docs/images, in MatDesktop's look. It works in a temporary data folder (Program sets it) filled with
 /// the sample history, with a pinned clock, version 1.0.0 on the release channel and a fixed computer name: no real
 /// history, clipboard, shortcut, tray icon, registry value, network or update check is touched.
 /// </summary>
@@ -39,8 +39,8 @@ internal static class Snapshot
 
     private static readonly string[] ThemedPictures =
     [
-        "setup-welcome", "setup-progress", "setup-finish", "setup-update", "setup-uninstall",
-        "main-history", "main-settings", "main-about", "main-folded", "dialog-pause", "toast",
+        "setup-welcome", "setup-options", "setup-progress", "setup-finish", "setup-update", "setup-uninstall",
+        "main-history", "main-settings", "main-about", "main-folded", "main-paused", "dialog-pause", "dialog-clear-history", "dialog-viewer", "toast",
     ];
 
     /// <summary>Every file a snapshot writes (the tray icons are the same in both themes).</summary>
@@ -133,30 +133,59 @@ internal static class Snapshot
 
     private static void RenderSetup(string folder, string theme, SnapshotReport report)
     {
-        var pages = new[]
+        foreach (var page in Enum.GetValues<SetupSnapshotPage>())
         {
-            ("setup-welcome", Setup.SetupSnapshotPage.Welcome),
-            ("setup-progress", Setup.SetupSnapshotPage.Progress),
-            ("setup-finish", Setup.SetupSnapshotPage.Finish),
-            ("setup-update", Setup.SetupSnapshotPage.Update),
-            ("setup-uninstall", Setup.SetupSnapshotPage.Uninstall),
-        };
-        foreach (var (name, page) in pages)
-        {
+            var name = $"setup-{page.ToString().ToLowerInvariant()}";
             if (!OperatingSystem.IsWindows())
             {
                 report.Skipped.Add(($"{name}-{theme}.png", "the setup assistant exists on Windows only (macOS: the app bundle and the dmg)"));
                 continue;
             }
 
-            // An update brings 1.0.0 over 0.9.0; the uninstall removes the installed 1.0.0.
-            var installed = page == Setup.SetupSnapshotPage.Update ? "0.9.0" : Version;
-            var window = Setup.SetupWindow.ForSnapshot(page, installed, ProgramFolder);
-            window.Show();
-            Settle(window);
-            Save(window, folder, $"{name}-{theme}.png", report);
-            window.Close();
+            RenderSetupPage(folder, $"{name}-{theme}.png", page, report);
         }
+    }
+
+    /// <summary>
+    /// One page of the setup with fixed values (MatSetupWindow, ThixClipSetup.Create): nothing is installed, removed or asked
+    /// from the system. Progress shows the steps of an installation two thirds along (the running bar would show wherever its
+    /// animation happens to be), Finish the end of one that worked.
+    /// </summary>
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    private static void RenderSetupPage(string folder, string file, SetupSnapshotPage page, SnapshotReport report)
+    {
+        // An update brings 1.0.0 over 0.9.0; the uninstall removes the installed 1.0.0.
+        var installed = page == SetupSnapshotPage.Update ? "0.9.0" : Version;
+        var hold = new TaskCompletionSource();
+        var window = Setup.ThixClipSetup.Create(page == SetupSnapshotPage.Uninstall, page == SetupSnapshotPage.Update, installed, ProgramFolder, async run =>
+        {
+            if (page != SetupSnapshotPage.Progress)
+            {
+                return;
+            }
+
+            run.Progress.Report(new MatSetupReport($"Installiere ThixClip nach {ProgramFolder}", MatSetupStepState.Done));
+            run.Progress.Report(new MatSetupReport("Programmdatei kopiert", MatSetupStepState.Done));
+            run.Progress.Report(new MatSetupReport("Startmenü-Eintrag angelegt", MatSetupStepState.Done));
+            run.Progress.Report(new MatSetupReport("Autostart bei der Windows-Anmeldung eingerichtet", MatSetupStepState.Running, 65));
+            await hold.Task;
+        });
+        window.Show();
+        Settle(window);
+        if (page == SetupSnapshotPage.Options)
+        {
+            window.GoTo(MatSetupStepKind.Options);
+        }
+        else if (page is SetupSnapshotPage.Progress or SetupSnapshotPage.Finish)
+        {
+            _ = window.RunAsync();
+        }
+
+        Settle(window);
+        Save(window, folder, file, report);
+        hold.TrySetResult();
+        Settle(window);
+        window.Close();
     }
 
     private static void RenderMainWindow(string folder, string theme, SnapshotReport report)
@@ -195,6 +224,30 @@ internal static class Snapshot
         window.ToggleSidebar();
         Settle(window);
 
+        // Recording paused: the header says so in the colours of a warning (until resumed: the same words in every run).
+        history.SelectFirst();
+        history.MoveSelection(1);
+        RecordingService.Pause(PauseLength.UntilResumed);
+        Settle(window, waitLonger: true);
+        Save(window, folder, $"main-paused-{theme}.png", report);
+        RecordingService.Resume();
+        Settle(window);
+
+        // "Verlauf löschen" as in a browser, and the chosen picture in the viewer.
+        _ = window.ClearHistoryAsync();
+        Settle(window);
+        var clear = window.OwnedWindows.OfType<Dialogs.ClearHistoryDialog>().Single();
+        Settle(clear);
+        Save(clear, folder, $"dialog-clear-history-{theme}.png", report);
+        clear.Close();
+        Settle(window);
+
+        var viewer = history.OpenSelected() ?? throw new InvalidOperationException("the viewer did not open");
+        Settle(viewer, waitLonger: true);
+        Save(viewer, folder, $"dialog-viewer-{theme}.png", report);
+        viewer.Close();
+        Settle(window);
+
         _ = Dialogs.PauseDialog.AskAsync(window, PauseLength.Minutes30);
         Settle(window);
         var dialog = window.OwnedWindows.OfType<Dialogs.PauseDialog>().Single();
@@ -209,26 +262,27 @@ internal static class Snapshot
 
     private static void RenderToast(string folder, string theme, SnapshotReport report)
     {
-        var toast = Tray.NotificationToast.Show("Update verfügbar", "ThixClip 1.0.1 kann installiert werden (Einstellungen › Updates).",
-            isWarning: false, onClick: () => { });
+        var toast = MatNotification.Show("Update verfügbar", "ThixClip 1.0.1 kann installiert werden (Einstellungen › Updates).");
         Settle(toast);
         Save(toast, folder, $"toast-{theme}.png", report);
         toast.Close();
         Settle(toast);
     }
 
-    /// <summary>The tray / menu bar icons at 64 px, as they are drawn at start (the paused ones by TrayIconImages).</summary>
+    /// <summary>
+    /// The tray / menu bar icons at 64 px, as MatDesktop draws them (TRAY-02): the mark with the dot of the state – running
+    /// green, paused amber with a pause sign – and on macOS the template image with the pause shape.
+    /// </summary>
     private static void RenderTrayIcons(string folder, SnapshotReport report)
     {
-        foreach (var (asset, isTemplate, platform) in new[] { ("tray-windows.ico", false, "windows"), ("tray-macos.png", true, "macos") })
+        foreach (var (template, platform) in new[] { (false, "windows"), (true, "macos") })
         {
             foreach (var paused in new[] { false, true })
             {
                 var name = paused ? $"tray-icon-{platform}-paused.png" : $"tray-icon-{platform}.png";
-                using var source = AssetLoader.Open(new Uri($"avares://ThixClip/Assets/{asset}"));
-                var png = Tray.TrayIconImages.Png(source, isTemplate, withPauseBadge: paused)
-                          ?? throw new InvalidOperationException($"{asset} could not be decoded");
-                File.WriteAllBytes(Path.Combine(folder, name), png);
+                var state = paused ? MatState.Custom("Pausiert bis 15:02", "--mat-warning", MatStateMark.Pause) : MatState.Running;
+                using var mark = Tray.TrayIcon.Mark(template);
+                File.WriteAllBytes(Path.Combine(folder, name), MatTrayIcons.Png(mark, state, template));
                 report.Written.Add(name);
             }
         }
@@ -304,4 +358,15 @@ internal sealed class SnapshotReport
     public List<string> Written { get; } = [];
 
     public List<(string File, string Reason)> Skipped { get; } = [];
+}
+
+/// <summary>The pages of the setup that "ThixClip --snapshot" draws (setup-welcome ... setup-uninstall).</summary>
+internal enum SetupSnapshotPage
+{
+    Welcome,
+    Options,
+    Progress,
+    Finish,
+    Update,
+    Uninstall,
 }

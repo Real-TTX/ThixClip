@@ -1,118 +1,45 @@
-<local:ThemedWindow xmlns="https://github.com/avaloniaui"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:local="using:ThixClip"
-                    xmlns:controls="using:ThixClip.Controls"
-                    x:Class="ThixClip.MainWindow"
-                    Title="ThixClip" Width="1180" Height="760" MinWidth="760" MinHeight="460"
-                    WindowStartupLocation="Manual"
-                    ExtendClientAreaToDecorationsHint="True">
+<mat:MatWindow xmlns="https://github.com/avaloniaui"
+               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+               xmlns:mat="using:MatDesktop"
+               xmlns:controls="using:ThixClip.Controls"
+               x:Class="ThixClip.MainWindow"
+               Title="ThixClip" Width="1180" Height="760" MinWidth="760" MinHeight="460"
+               WindowStartupLocation="Manual">
   <!--
-    The one window of ThixClip (mockup): header with search and shortcut, sidebar with the sections, the version
-    (= about page) and the retention, and the page (history, settings, about). It is built once and shown/hidden by
-    the shortcut. The title bar is ours: on Windows with our own caption buttons, on macOS with the traffic lights.
+    The one window of ThixClip (mockup), in MatDesktop's chrome: the title bar (DESK-03: logo and word mark, the search,
+    the pause button and the shortcut in the middle, the caption buttons on Windows, the traffic lights on macOS), the menu
+    (DESK-04: the sections, Settings below a line, at its foot the retention, the cloud state, the version = About and the
+    fold to a rail) and the page (history, settings, about). It is built once and shown/hidden by the shortcut.
   -->
   <Grid RowDefinitions="Auto,*">
-    <!-- ===== Header ===== -->
-    <Border x:Name="Header" Background="{DynamicResource HeaderBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
-            Height="68" PointerPressed="OnHeaderPointerPressed" DoubleTapped="OnHeaderDoubleTapped">
-      <Grid x:Name="HeaderGrid" ColumnDefinitions="248,*,Auto,Auto,Auto" Margin="22,0,12,0">
-        <StackPanel x:Name="Brand" Orientation="Horizontal" Spacing="11" VerticalAlignment="Center" IsHitTestVisible="False">
-          <Image Source="/Assets/logo-64.png" Width="32" Height="32" RenderOptions.BitmapInterpolationMode="HighQuality" />
-          <TextBlock x:Name="BrandName" VerticalAlignment="Center" FontSize="19" FontWeight="SemiBold">
-            <Run Text="Thix" /><Run Text="Clip" Foreground="{DynamicResource AccentBrush}" />
-          </TextBlock>
-        </StackPanel>
+    <mat:MatTitleBar x:Name="TitleBar" AppName="ThixClip" CloseKey="Esc">
+      <mat:MatTitleBar.WordMark>
+        <TextBlock VerticalAlignment="Center" FontSize="{DynamicResource Mat.FontSizeXl}" FontWeight="SemiBold">
+          <Run Text="Thix" /><Run Text="Clip" Foreground="{DynamicResource Mat.AccentText}" />
+        </TextBlock>
+      </mat:MatTitleBar.WordMark>
+      <mat:MatTitleBar.Center>
+        <Grid ColumnDefinitions="*,Auto,Auto">
+          <TextBox x:Name="SearchBox" Theme="{StaticResource MatSearchBox}" MaxWidth="620" HorizontalAlignment="Stretch"
+                   Watermark="Zwischenablage durchsuchen" AutomationProperties.Name="Zwischenablage durchsuchen" />
 
-        <Panel Grid.Column="1" MaxWidth="620" HorizontalAlignment="Stretch" Margin="8,0,20,0" VerticalAlignment="Center">
-          <TextBox x:Name="SearchBox" Theme="{StaticResource SearchBox}" Watermark="Zwischenablage durchsuchen"
-                   AutomationProperties.Name="Zwischenablage durchsuchen" />
-          <controls:IconView Data="{StaticResource Icon.Search}" Width="18" Height="18" Margin="13,0,0,0" HorizontalAlignment="Left"
-                             Foreground="{DynamicResource TextMutedBrush}" IsHitTestVisible="False" />
-        </Panel>
-
-        <!-- Recording: always in sight. Paused: an amber "Fortsetzen" with the end of the pause (MainWindow.RefreshPause). -->
-        <Button Grid.Column="2" x:Name="PauseButton" Click="OnPauseClick" Margin="0,0,12,0" VerticalAlignment="Center">
-          <controls:IconLabel x:Name="PauseLabel" Icon="{StaticResource Icon.Pause}" Text="Pausieren" />
-        </Button>
-
-        <Button Grid.Column="3" x:Name="HotkeyBadge" Theme="{StaticResource LinkButton}" Click="OnHotkeyBadgeClick" Margin="0,0,10,0"
-                ToolTip.Tip="Tastenkürzel ändern" AutomationProperties.Name="Tastenkürzel">
-          <controls:KeyCaps x:Name="HotkeyCaps" Padding="10,5" />
-        </Button>
-
-        <StackPanel Grid.Column="4" x:Name="CaptionButtons" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
-          <Button Theme="{StaticResource CaptionButton}" Click="OnMinimizeClick" ToolTip.Tip="Minimieren" AutomationProperties.Name="Minimieren">
-            <controls:IconView Data="{StaticResource Icon.Minus}" Width="16" Height="16" StrokeWidth="1.6" />
+          <!-- Recording: always in sight. Paused: "Fortsetzen" in the colours of a warning with the end of the pause (RefreshPause). -->
+          <Button Grid.Column="1" x:Name="PauseButton" Click="OnPauseClick" Margin="12,0,10,0" VerticalAlignment="Center">
+            <controls:IconLabel x:Name="PauseLabel" Icon="pause" Text="Pausieren" />
           </Button>
-          <Button Theme="{StaticResource CaptionButton}" Click="OnMaximizeClick" ToolTip.Tip="Maximieren" AutomationProperties.Name="Maximieren">
-            <controls:IconView x:Name="MaximizeIcon" Data="{StaticResource Icon.Maximize}" Width="15" Height="15" StrokeWidth="1.6" />
+
+          <Button Grid.Column="2" x:Name="HotkeyBadge" Theme="{StaticResource MatButton.Link}" Click="OnHotkeyBadgeClick" VerticalAlignment="Center"
+                  ToolTip.Tip="Tastenkürzel ändern" AutomationProperties.Name="Tastenkürzel">
+            <controls:KeyCaps x:Name="HotkeyCaps" Padding="8,3" />
           </Button>
-          <Button Theme="{StaticResource CloseCaptionButton}" Click="OnCloseClick" ToolTip.Tip="Schließen (Esc)" AutomationProperties.Name="Schließen">
-            <controls:IconView Data="{StaticResource Icon.Close}" Width="16" Height="16" StrokeWidth="1.6" />
-          </Button>
-        </StackPanel>
-      </Grid>
-    </Border>
+        </Grid>
+      </mat:MatTitleBar.Center>
+    </mat:MatTitleBar>
 
-    <!-- ===== Body ===== -->
-    <Grid Grid.Row="1" x:Name="BodyGrid" ColumnDefinitions="248,*">
-
-      <!-- Sidebar: full, or folded to its icons (Ctrl/Cmd+B, the button at its foot; MainWindow.ApplySidebar) -->
-      <Border x:Name="Sidebar" Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
-        <DockPanel Margin="14,18,14,14">
-          <StackPanel DockPanel.Dock="Bottom" Spacing="12">
-            <!-- Retention (mockup "Speicherdauer") -->
-            <Border x:Name="RetentionCard" Theme="{StaticResource Card}" Padding="16,14">
-              <StackPanel Spacing="10">
-                <TextBlock Text="Speicherdauer" FontWeight="SemiBold" FontSize="15" />
-                <TextBlock x:Name="RetentionDescription" Text="Wie lange sollen Zwischenablage-Einträge gespeichert werden?" Theme="{StaticResource MutedText}" />
-                <ComboBox x:Name="RetentionChoice" HorizontalAlignment="Stretch" AutomationProperties.Name="Speicherdauer" />
-                <TextBlock x:Name="RetentionHint" Theme="{StaticResource FaintText}" TextWrapping="Wrap" Text="Favoriten und angeheftete Einträge bleiben immer." />
-              </StackPanel>
-            </Border>
-
-            <!-- Cloud state -->
-            <Button x:Name="CloudStatus" Theme="{StaticResource GhostButton}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                    Padding="8,6" Click="OnCloudStatusClick" ToolTip.Tip="ThixClip.Cloud">
-              <StackPanel Orientation="Horizontal" Spacing="9">
-                <Panel>
-                  <controls:IconView Data="{StaticResource Icon.Cloud}" Width="18" Height="18" />
-                  <Ellipse x:Name="CloudDot" Width="8" Height="8" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-2,-1" />
-                </Panel>
-                <TextBlock x:Name="CloudText" FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="170" />
-              </StackPanel>
-            </Button>
-
-            <!-- Version = about page (bottom left); folded: an info icon above the button that unfolds -->
-            <Grid x:Name="SidebarFoot" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-              <Button x:Name="VersionButton" Theme="{StaticResource LinkButton}" Margin="8,0,0,0" VerticalAlignment="Center" Click="OnVersionClick"
-                      ToolTip.Tip="Über ThixClip" AutomationProperties.Name="Über ThixClip" />
-              <Button Grid.Column="1" x:Name="SidebarToggle" Theme="{StaticResource GhostButton}" VerticalAlignment="Center" Click="OnSidebarToggleClick">
-                <controls:IconView Data="{StaticResource Icon.Sidebar}" Width="18" Height="18" />
-              </Button>
-            </Grid>
-          </StackPanel>
-
-          <StackPanel>
-            <ToggleButton x:Name="NavHistory" Theme="{StaticResource NavItem}" Click="OnNavClick" Tag="History" ToolTip.Tip="Verlauf (Strg+1)">
-              <controls:IconLabel Icon="{StaticResource Icon.History}" Text="Verlauf" Spacing="13" />
-            </ToggleButton>
-            <ToggleButton x:Name="NavImages" Theme="{StaticResource NavItem}" Click="OnNavClick" Tag="Images" ToolTip.Tip="Bilder (Strg+2)">
-              <controls:IconLabel Icon="{StaticResource Icon.Image}" Text="Bilder" Spacing="13" />
-            </ToggleButton>
-            <ToggleButton x:Name="NavFavorites" Theme="{StaticResource NavItem}" Click="OnNavClick" Tag="Favorites" ToolTip.Tip="Favoriten (Strg+3)">
-              <controls:IconLabel Icon="{StaticResource Icon.Star}" Text="Favoriten" Spacing="13" />
-            </ToggleButton>
-            <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="12,10,12,14" />
-            <ToggleButton x:Name="NavSettings" Theme="{StaticResource NavItem}" Click="OnNavClick" Tag="Settings" ToolTip.Tip="Einstellungen (Strg+,)">
-              <controls:IconLabel Icon="{StaticResource Icon.Settings}" Text="Einstellungen" Spacing="13" />
-            </ToggleButton>
-          </StackPanel>
-        </DockPanel>
-      </Border>
-
-      <!-- Page -->
+    <Grid Grid.Row="1" x:Name="BodyGrid" ColumnDefinitions="Auto,*">
+      <!-- The menu; its foot gets the retention and the cloud state above the version (MainWindow.AddToMenuFoot) -->
+      <mat:MatNav x:Name="Sidebar" AppName="ThixClip" />
       <ContentControl Grid.Column="1" x:Name="PageHost" />
     </Grid>
   </Grid>
-</local:ThemedWindow>
+</mat:MatWindow>
