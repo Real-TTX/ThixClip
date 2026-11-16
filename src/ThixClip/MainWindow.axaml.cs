@@ -42,7 +42,6 @@ public partial class MainWindow : MatWindow
     public MainWindow()
     {
         InitializeComponent();
-        Icon = Ui.AppIcon;
         UseOwnTitleBar();
         var settings = SettingsService.Get();
         Width = settings.WindowWidth;
@@ -68,8 +67,10 @@ public partial class MainWindow : MatWindow
         Sidebar.Channel = AppInfo.Channel;
         Sidebar.TitleBar = TitleBar;
         Sidebar.IsFolded = settings.IsSidebarCollapsed;
+        Sidebar.FoldShortcut = $"{command}+B"; // DESK-07: named in the tooltip of the fold button
         Sidebar.ItemInvoked += (_, item) => OnNavInvoked(item);
         Sidebar.AboutRequested += (_, _) => ShowAbout();
+        Sidebar.UpdateRequested += (_, _) => ShowAbout(); // About has the way to install it
         Sidebar.FoldChanged += (_, folded) =>
         {
             SettingsService.Remember(current => current with { IsSidebarCollapsed = folded });
@@ -162,10 +163,6 @@ public partial class MainWindow : MatWindow
     private Button CloudStatus { get; set; } = null!;
 
     private Ellipse CloudDot { get; set; } = null!;
-
-    private Button UpdateLink { get; set; } = null!;
-
-    private IconLabel UpdateLabel { get; set; } = null!;
 
     public void ToggleSidebar() => Sidebar.IsFolded = !Sidebar.IsFolded;
 
@@ -510,9 +507,8 @@ public partial class MainWindow : MatWindow
     }
 
     /// <summary>
-    /// What ThixClip shows at the foot of its menu above the version: the retention (mockup "Speicherdauer"), a waiting
-    /// update and the state of the cloud. MatNav has no place of its own for it, so it goes into the menu's dock above its
-    /// foot (the version and the fold button).
+    /// What ThixClip shows at the foot of its menu above the version (MatNav.Foot): the retention (mockup "Speicherdauer")
+    /// and the state of the cloud. A waiting update is MatNav's own link above the version.
     /// </summary>
     private void AddToMenuFoot()
     {
@@ -536,10 +532,6 @@ public partial class MainWindow : MatWindow
             },
         }.Themed("MatCard");
 
-        UpdateLabel = new IconLabel { Icon = "download" };
-        UpdateLink = new Button { Content = UpdateLabel, IsVisible = false, HorizontalAlignment = HorizontalAlignment.Left }.Themed("MatButton.Link");
-        UpdateLink.Click += (_, _) => ShowAbout();
-
         CloudDot = new Ellipse { Width = 8, Height = 8, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, -2, -1) };
         CloudText = new TextBlock { FontSize = MatTokens.Type.FsSm, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 170 };
         CloudStatus = new Button
@@ -555,12 +547,7 @@ public partial class MainWindow : MatWindow
         }.Themed("MatButton.Ghost");
         CloudStatus.Click += (_, _) => ShowSettings(SettingsPage.CloudTab);
 
-        var extras = new StackPanel { Spacing = 10, Margin = new Thickness(0, 12, 0, 10), Children = { RetentionCard, UpdateLink, CloudStatus } };
-        if (Sidebar.Child is DockPanel dock)
-        {
-            DockPanel.SetDock(extras, Dock.Bottom);
-            dock.Children.Insert(1, extras);
-        }
+        Sidebar.Foot = new StackPanel { Spacing = 10, Margin = new Thickness(0, 12, 0, 10), Children = { RetentionCard, CloudStatus } };
     }
 
     private void InitializeRetention()
@@ -611,8 +598,8 @@ public partial class MainWindow : MatWindow
     }
 
     /// <summary>
-    /// Full menu: the retention, a waiting update and the cloud state in words. Folded (MatNav shows the icons and an info
-    /// icon for About): the cloud icon with its dot, the update as an icon; the fold button names its shortcut.
+    /// Full menu: the retention, the cloud state in words and a waiting update (MatNav's link above the version). Folded
+    /// (MatNav shows the icons, the update as an icon and an info icon for About): the cloud icon with its dot.
     /// </summary>
     private void ApplySidebar()
     {
@@ -621,19 +608,8 @@ public partial class MainWindow : MatWindow
         CloudText.IsVisible = !folded;
         CloudStatus.HorizontalContentAlignment = folded ? HorizontalAlignment.Center : HorizontalAlignment.Left;
 
-        // An update waiting: a link above the cloud state (an icon when folded); a click shows About with the way to install it.
-        var update = UpdateService.LastResult is { IsUpdateAvailable: true, Manifest: { } manifest } ? manifest.Version : null;
-        UpdateLink.IsVisible = update is not null;
-        UpdateLabel.Text = update is null ? "" : $"Update auf {update}";
-        UpdateLabel.IsTextVisible = !folded;
-        UpdateLink.HorizontalAlignment = folded ? HorizontalAlignment.Center : HorizontalAlignment.Left;
-        UpdateLink.Margin = folded ? new Thickness(0) : new Thickness(8, 0, 0, 0);
-        ToolTip.SetTip(UpdateLink, update is null ? null : $"Update auf {update} verfügbar – Über ThixClip");
-        AutomationProperties.SetName(UpdateLink, update is null ? "" : $"Update auf {update} verfügbar");
-
-        // DESK-07: the shortcut in the tooltip of the fold button
-        var action = MatText.Get(folded ? "nav.unfold" : "nav.fold");
-        ToolTip.SetTip(SidebarToggle, $"{action} ({Ui.CommandKey.Name}+B)");
+        // An update waiting: MatNav's link above the version (an icon when folded); a click shows About with the way to install it.
+        Sidebar.UpdateVersion = UpdateService.LastResult is { IsUpdateAvailable: true, Manifest: { } manifest } ? manifest.Version : null;
         RefreshCloudStatus();
     }
 
@@ -692,7 +668,7 @@ public partial class MainWindow : MatWindow
         var paused = RecordingService.IsPaused;
         if (paused)
         {
-            PauseButton.Themed("ThixClip.PausedButton");
+            PauseButton.Themed("MatButton.Warning");
         }
         else
         {

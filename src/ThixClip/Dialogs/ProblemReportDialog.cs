@@ -24,7 +24,6 @@ public sealed class ProblemReportDialog : MatWindow
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Topmost = true;
-        Icon = Ui.AppIcon;
         this.Use(BackgroundProperty, "Mat.Surface");
 
         var heading = new StackPanel

@@ -271,7 +271,7 @@ public sealed class UiTests
         Assert.True(RecordingService.IsPaused);
         Assert.InRange(RecordingService.PausedUntil!.Value - DateTimeOffset.UtcNow, TimeSpan.FromMinutes(59), TimeSpan.FromMinutes(60.1));
         Assert.StartsWith("Fortsetzen · pausiert bis ", window.PauseLabel.Text);
-        Assert.Same(Ui.Theme("ThixClip.PausedButton"), window.PauseButton.Theme);
+        Assert.Same(Ui.Theme("MatButton.Warning"), window.PauseButton.Theme);
         Save(window, "paused");
 
         // The tray shows the pause as a state of ThixClip's own (TRAY-02): amber with a pause sign, a pause shape on the
@@ -479,7 +479,7 @@ public sealed class UiTests
 
         // SETUP-07: at the foot of the menu (it opens About), in About and in the footer of the setup.
         var window = Open();
-        Assert.Equal(expected, window.VersionButton.Content);
+        Assert.Equal(expected, window.Sidebar.VersionText);
         window.VersionButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
         Settle(window);
         Assert.Equal(expected, Assert.IsType<AboutPage>(window.PageHost.Content).VersionText.Text);

@@ -31,16 +31,15 @@ public sealed class PauseDialog : MatWindow
         SizeToContent = SizeToContent.Height;
         CanResize = false;
         ShowInTaskbar = false;
-        Icon = Ui.AppIcon;
         this.Use(BackgroundProperty, "Mat.Surface");
 
-        _lengths.Theme = Ui.Theme("ThixClip.ClipList");
+        _lengths.Theme = Ui.Theme("MatList");
         AutomationProperties.SetName(_lengths, "Dauer");
         foreach (var length in RecordingService.Choices)
         {
             var item = new ListBoxItem
             {
-                Theme = Ui.Theme("ThixClip.ChoiceRow"),
+                Theme = Ui.Theme("MatChoiceRow"),
                 Tag = length,
                 Content = new TextBlock { Text = RecordingService.Text(length) },
             };

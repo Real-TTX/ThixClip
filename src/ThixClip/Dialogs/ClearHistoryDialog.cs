@@ -37,10 +37,9 @@ public sealed class ClearHistoryDialog : MatWindow
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ShowInTaskbar = false;
-        Icon = Ui.AppIcon;
         this.Use(BackgroundProperty, "Mat.Surface");
 
-        _ranges.Theme = Ui.Theme("ThixClip.ClipList");
+        _ranges.Theme = Ui.Theme("MatList");
         AutomationProperties.SetName(_ranges, "Zeitraum");
         foreach (var range in ClearRanges.Choices)
         {
@@ -117,7 +116,7 @@ public sealed class ClearHistoryDialog : MatWindow
 
         var item = new ListBoxItem
         {
-            Theme = Ui.Theme("ThixClip.ChoiceRow"),
+            Theme = Ui.Theme("MatChoiceRow"),
             Tag = new RangeChoice(range, count),
             Content = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Children = { name, number } },
         };

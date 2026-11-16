@@ -1,4 +1,4 @@
-// MatDesktop 0.1.0 – a copy from MatDesign, do not edit here
+// MatDesktop 0.2.0 – a copy from MatDesign, do not edit here
 // Plain C#, only System: a WinForms tray can take it too.
 using System.Globalization;
 
@@ -47,6 +47,8 @@ public static class MatText
         ["nav.unfold"] = "Open the menu",
         ["nav.about"] = "About {0}",
         ["nav.settings"] = "Settings",
+        ["nav.update"] = "Update to {0}",
+        ["nav.updateAvailable"] = "Update to {0} available",
 
         // Info (TRAY-05)
         ["info.title"] = "Info",
@@ -130,6 +132,8 @@ public static class MatText
         ["nav.unfold"] = "Menü ausklappen",
         ["nav.about"] = "Über {0}",
         ["nav.settings"] = "Einstellungen",
+        ["nav.update"] = "Update auf {0}",
+        ["nav.updateAvailable"] = "Update auf {0} verfügbar",
 
         ["info.title"] = "Info",
         ["info.open"] = "Öffnen",

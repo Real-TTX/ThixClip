@@ -37,6 +37,7 @@ internal sealed class TrayIcon : IDisposable
         };
         Update();
         _tray = new MatTray(app, _menu, Mark());
+        _tray.MenuOpening += (_, _) => Update(); // macOS and Linux say when the menu opens: the last entries are fresh then
         SettingsService.Changed += OnChanged;
         RecordingService.Changed += OnChanged;
         ClipService.Changed += OnChanged;
@@ -73,8 +74,9 @@ internal sealed class TrayIcon : IDisposable
     }
 
     /// <summary>
-    /// The state, the last entries or a setting changed: the menu and the icon follow. MatTray builds its menu from the model
-    /// and has no hook when the menu opens, so the model is kept up to date (coalesced: a burst of changes is one refresh).
+    /// The state, the last entries or a setting changed: the menu, the tooltip and (only when the state looks different) the
+    /// icon follow. Windows does not say when the tray menu opens, so the model is kept up to date (coalesced: a burst of
+    /// changes is one refresh; MatTray draws the icon again only when the colour or the mark of the state changed).
     /// </summary>
     private void OnChanged(object? sender, object? e)
     {
@@ -100,7 +102,10 @@ internal sealed class TrayIcon : IDisposable
     /// <summary>The model: the state, ThixClip's own items and whether an update waits.</summary>
     private void Update()
     {
+        var settings = SettingsService.Get();
         _menu.State = State;
+        _menu.OpenShortcut = settings.Hotkey; // at the right of "ThixClip öffnen" (DESK-07)
+        _menu.TooltipText = $"Öffnen mit {HotkeyService.Display(settings.Hotkey)}";
         _menu.InstallUpdate = _updateAvailable ? () => _app.ShowMainWindow(window => window.ShowSettings(Pages.SettingsPage.UpdatesTab)) : null;
         _menu.ClearOwn();
 
@@ -117,6 +122,8 @@ internal sealed class TrayIcon : IDisposable
             _menu.AddOwn(MenuText(entry), () => Copy(id));
         }
 
+        // pause and sync in a group of their own, below the last entries (still in the place of TRAY-01)
+        _menu.AddOwnSeparator();
         if (RecordingService.IsPaused)
         {
             _menu.AddOwn($"Aufzeichnung fortsetzen ({RecordingService.Describe()})", RecordingService.Resume);
@@ -126,7 +133,7 @@ internal sealed class TrayIcon : IDisposable
             _menu.AddOwn("Aufzeichnung pausieren …", () => _ = _app.TogglePauseAsync());
         }
 
-        if (SettingsService.Get().Cloud.IsConnected)
+        if (settings.Cloud.IsConnected)
         {
             _menu.AddOwn("Jetzt synchronisieren", SyncService.Kick);
         }

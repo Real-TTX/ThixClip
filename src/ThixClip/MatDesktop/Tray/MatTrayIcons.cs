@@ -1,4 +1,4 @@
-// MatDesktop 0.1.0 – a copy from MatDesign, do not edit here
+// MatDesktop 0.2.0 – a copy from MatDesign, do not edit here
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -43,7 +43,7 @@ public static class MatTrayIcons
                 }
 
                 // a template image is read by its opacity only: any opaque colour of the tokens will do
-                var colour = template ? MatTokens.Light.Text : MatPalette.For(MatTheme.Options?.Accent, dark: false, MatTheme.Options?.OnAccent)[state.ColorToken];
+                var colour = template ? MatTokens.Light.Text : MatPalette.For(MatTheme.Options?.Accent, dark: false, MatTheme.Options?.OnAccent)[state.TrayColorToken];
                 context.DrawGeometry(new SolidColorBrush(MatTheme.ToColor(colour)), null, dot);
             }
         }

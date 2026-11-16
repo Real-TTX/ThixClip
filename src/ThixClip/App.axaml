@@ -6,6 +6,6 @@
   <!--
     The look is MatDesktop's (MatDesktop/, copied from MatDesign): App.Initialize installs its theme with ThixClip's accent
     (Fluent in the colours of the tokens, a brush per token in light and dark, the control themes of the flat look, the
-    icons of the sprite) and then the control themes of ThixClip's own lists (Themes/ThixClipControls.axaml).
+    icons of the sprite, the lists and choices; every window takes the app's icon from it).
   -->
 </Application>

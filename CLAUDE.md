@@ -81,7 +81,7 @@ src/ThixClip.Core     (no UI) models, business layer (static classes), infrastru
 src/ThixClip          (Avalonia app)
   Program / App       start-up: ProblemReports first, self test, Windows setup mode, single instance (MatSingleInstance), services, tray,
                       hotkey, prewarm, timers, TogglePauseAsync (the pause dialog for header, tray, settings, Ctrl/Cmd+Shift+P);
-                      Initialize installs MatDesktop's theme with ThixClip's accent (App.Accent, #2F6FED), MatText in German, ThixClipControls
+                      Initialize installs MatDesktop's theme with ThixClip's accent (App.Accent, #2F6FED) and the app icon of every window (MatThemeOptions.Icon), MatText in German
   MatDesktop/         COPY of MatDesign's desktop toolkit (never edited here, see Build / run / test): MatTheme, MatWindow, MatTitleBar, MatNav,
                       MatIcon, MatSettingRow/MatFormField, MatTray/MatTrayMenu/MatTrayIcons, MatNotification, MatSetupWindow, MatVersion ...
   Ui                  helpers: app icon and logo, Theme(key) for object initializers, the UI thread, opening addresses, texts of times
@@ -90,7 +90,7 @@ src/ThixClip          (Avalonia app)
   Snapshot            --snapshot <folder>: every window as PNG, headless (see Build / run / test)
   MainWindow          a MatWindow: MatTitleBar (logo and word mark; search, pause button: framed "Pausieren" / warning "Fortsetzen · pausiert bis …",
                       shortcut chip; caption buttons on Windows / traffic lights on macOS), MatNav (sections, Settings; at its foot the
-                      retention card, a waiting update and the cloud state – put into the menu's dock above its foot, MatNav has no slot –,
+                      retention card and the cloud state in MatNav.Foot, a waiting update as MatNav's link (UpdateVersion -> About),
                       "Version x · channel" = about; folds to a 68 px rail with Ctrl/Cmd+B or the button at its foot, remembered in
                       AppSettings.IsSidebarCollapsed), page host; ALL keyboard handling (OnPreviewKeyDown)
   Pages/              HistoryPage (title and filters in one line; list grouped by day + detail pane with ONE row of icon buttons
@@ -98,13 +98,11 @@ src/ThixClip          (Avalonia app)
                       entry and keeps the focus; count / notes bottom right; the chosen row is scrolled into view only after
                       layout (BringIntoView), else the virtualizing panel leaves a growing gap; adaptive below 820 px), ClipRowViewModel, SettingsPage
                       (tabs Allgemein | Aufzeichnung | Cloud | Updates | Erweitert), AboutPage (update card -> Einstellungen › Updates)
-  Controls/           ThixClip's own, ONE code base per control: IconLabel (a sprite icon and a text; filled for a chosen star or pin),
+  Controls/           ThixClip's own, ONE code base per control: IconLabel (a sprite icon and a text; MatIcon.IsFilled for a chosen star or pin),
                       ActionBar (left, positive -> negative, Separated gap before delete), FormErrors (FormErrors.Field on a MatFormField:
                       shows BusinessException.Field), InfoBar (like mat-alert), KeyCaps (MatKeyCap), HotkeyRecorder
-  Themes/             ThixClipControls.axaml: control themes of what only ThixClip has (ClipList, ClipRow, ChoiceRow, PausedButton); no colour
-                      of its own, every value a MatDesktop resource
   Tray/               TrayIcon: MatTrayMenu + MatTray (TRAY-01 order: "ThixClip 1.0.0", the state, "ThixClip öffnen", own items = last five
-                      entries, pause …/resume, sync; Einstellungen, Log-Ordner, update, Beenden); state Läuft (green dot) or paused (amber
+                      entries, then a group pause …/resume, sync; Open shows the shortcut, the tooltip "Öffnen mit …"; filled again in MatTray.MenuOpening; Einstellungen, Log-Ordner, update, Beenden); state Läuft (green dot) or paused (amber
                       dot with a pause sign, MatState.Custom); notifications are MatNotification
   Setup/              ThixClipSetup: MatSetupWindow for install (Welcome → Options → Progress → Finish), update and uninstall; the work is
                       InstallService on a background task

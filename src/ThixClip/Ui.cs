@@ -18,20 +18,20 @@ internal static class Ui
     private static WindowIcon? _appIcon;
     private static Bitmap? _logo;
 
-    /// <summary>The icon of every window of ThixClip (the task bar, Alt+Tab).</summary>
+    /// <summary>The icon of every window of ThixClip (the task bar, Alt+Tab): MatThemeOptions.Icon gives it to every MatWindow.</summary>
     public static WindowIcon AppIcon => _appIcon ??= new WindowIcon(AssetLoader.Open(new Uri("avares://ThixClip/Assets/thixclip.ico")));
 
     /// <summary>The logo (the mark of the app), for the title bar and the header of the setup.</summary>
     public static Bitmap Logo => _logo ??= new Bitmap(AssetLoader.Open(new Uri("avares://ThixClip/Assets/logo-256.png")));
 
     /// <summary>
-    /// A named look of MatDesktop or of ThixClip (a control theme such as "MatButton.Primary" or "ThixClip.ChoiceRow") for
+    /// A named look of MatDesktop (a control theme such as "MatButton.Primary" or "MatChoiceRow") for
     /// an object initializer; anywhere else <c>control.Themed(key)</c>. A control theme is the same in light and dark.
     /// </summary>
     public static ControlTheme Theme(string key) =>
         Application.Current!.TryGetResource(key, null, out var value) && value is ControlTheme theme
             ? theme
-            : throw new InvalidOperationException($"The control theme {key} is missing (MatDesktop/Themes/Controls.axaml, Themes/ThixClipControls.axaml).");
+            : throw new InvalidOperationException($"The control theme {key} is missing (MatDesktop/Themes/Controls.axaml).");
 
     /// <summary>Runs the action on the UI thread (events of the business layer come from any thread).</summary>
     public static void Post(Action action) => Dispatcher.UIThread.Post(action);

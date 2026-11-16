@@ -1,4 +1,4 @@
-// MatDesktop 0.1.0 – a copy from MatDesign, do not edit here
+// MatDesktop 0.2.0 – a copy from MatDesign, do not edit here
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -24,7 +24,11 @@ public enum MatAppearance
 /// What <see cref="MatTheme.Install"/> needs: the app's accent (IDENT-01, the value of <c>--mat-app-accent</c> in <c>matui.apps.css</c>), the colour of text on it and the app's own accent text
 /// colour where the app sets them (<c>--mat-app-on-accent</c>, <c>--mat-app-accent-text</c>), and the appearance.
 /// </summary>
-public sealed record MatThemeOptions(string Accent, string? OnAccent = null, string? AccentText = null, MatAppearance Appearance = MatAppearance.System);
+public sealed record MatThemeOptions(string Accent, string? OnAccent = null, string? AccentText = null, MatAppearance Appearance = MatAppearance.System)
+{
+    /// <summary>The icon of every window of the program (<see cref="MatWindow.DefaultIcon"/>), or null.</summary>
+    public WindowIcon? Icon { get; init; }
+}
 
 /// <summary>
 /// The theme of a desktop program: Fluent's control templates in the colours and sizes of MatUi, the control themes of the flat look and the resources named after the tokens.
@@ -76,6 +80,11 @@ public static class MatTheme
         app.Resources.MergedDictionaries.Add(Colors(light, dark));
         app.Resources.MergedDictionaries.Add(Metrics());
         app.Resources.MergedDictionaries.Add(new MatControlThemes());
+        if (options.Icon is not null)
+        {
+            MatWindow.DefaultIcon = options.Icon;
+        }
+
         SetAppearance(options.Appearance);
     }
 
@@ -151,7 +160,7 @@ public static class MatTheme
         }
 
         // the line of a danger button: color-mix(in srgb, var(--mat-danger) 45%, transparent) (matui.controls.css)
-        Add(d, "Mat.DangerLine", MatColor.Transparent(p.Danger, 0.45));
+        Add(d, "Mat.DangerLine", p.DangerLine);
 
         // Fluent's keys: the text fields, combo boxes, switches and check boxes in the colours of MatUi's fields (matui.forms.css)
         var surface = p.Surface;

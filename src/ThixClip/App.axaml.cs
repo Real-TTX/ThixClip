@@ -48,8 +48,8 @@ public partial class App : Application
 
         // ThixClip speaks German, the texts of MatDesktop (title bar, menu, tray, setup) too.
         MatText.Language = "de";
-        MatTheme.Install(this, new MatThemeOptions(Accent));
-        Resources.MergedDictionaries.Add(new ThixClipControls());
+        // the icon of every window (MatWindow.DefaultIcon): the main window, the dialogs, the setup
+        MatTheme.Install(this, new MatThemeOptions(Accent) { Icon = Ui.AppIcon });
     }
 
     public override void OnFrameworkInitializationCompleted()

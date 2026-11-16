@@ -1,4 +1,6 @@
 using System.Runtime.Versioning;
+using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using MatDesktop;
 using ThixClip.Controls;
 using ThixClip.Core.Business;
@@ -10,7 +12,7 @@ namespace ThixClip.Setup;
 /// The Windows setup of ThixClip in MatDesktop's setup window (SETUP-01, SETUP-02): one window for install, update and
 /// uninstall, 600 × 560, the footer with "Version x · channel" (SETUP-07). Install: Welcome (per user, no administrator
 /// rights, where to: SETUP-03) → Options → Progress → Finish. Update: Welcome with the installed and the new version →
-/// Progress → Finish. Uninstall: what goes and "Auch meine Daten löschen" (off) → Progress → Finish (SETUP-04). The work
+/// Progress → Finish. Uninstall: what goes and "Auch meinen Verlauf löschen" (off) → Progress → Finish (SETUP-04). The work
 /// (InstallService, business layer) runs on a background task and reports its steps; the window only steers and cannot be
 /// closed halfway through.
 /// </summary>
@@ -103,13 +105,23 @@ internal static class ThixClipSetup
         var window = new MatSetupWindow(new MatSetup(AppInfo.ProductName, version, AppInfo.Channel, mode, steps, work)
         {
             Logo = Ui.Logo,
+            WordMark = WordMark(),
             InstalledVersion = installedVersion ?? "eine ältere Version",
             Finish = finish,
-        })
-        {
-            Icon = Ui.AppIcon,
-        };
+            DeleteDataText = "Auch meinen Verlauf löschen",
+            DeleteDataDescription = "Die Einträge, Bilder und Einstellungen auf diesem Computer. Ohne Haken bleiben sie für eine spätere Installation erhalten.",
+        });
         return window;
+    }
+
+    /// <summary>The word mark of the title bar ("Thix" and "Clip" in the accent text) for the header of the setup.</summary>
+    private static TextBlock WordMark()
+    {
+        var mark = new TextBlock { FontSize = MatTokens.Type.Fs2xl, FontWeight = Avalonia.Media.FontWeight.SemiBold };
+        var clip = new Run("Clip");
+        clip.Bind(TextElement.ForegroundProperty, mark.GetResourceObservable("Mat.AccentText"));
+        mark.Inlines = [new Run("Thix"), clip];
+        return mark;
     }
 
     /// <summary>A note under the text of a step, in the tint of information.</summary>

@@ -43,7 +43,7 @@
         </DockPanel>
 
         <Panel>
-          <ListBox x:Name="ClipList" Theme="{StaticResource ThixClip.ClipList}" ItemContainerTheme="{StaticResource ThixClip.ClipRow}" SelectionMode="Single"
+          <ListBox x:Name="ClipList" Theme="{StaticResource MatList}" ItemContainerTheme="{StaticResource MatCardRow}" SelectionMode="Single"
                    AutomationProperties.Name="Einträge" Padding="0,0,14,0" Margin="0,0,-14,0">
             <ListBox.ItemsPanel>
               <ItemsPanelTemplate>
@@ -58,8 +58,7 @@
                 </Grid>
               </DataTemplate>
               <DataTemplate DataType="pages:ClipRowViewModel">
-                <Border Classes="row" CornerRadius="{DynamicResource Mat.RadiusLg}" BorderThickness="1" Padding="14,11,8,11">
-                  <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto">
                     <!-- Picture of an image, icon of a text or link -->
                     <Border IsVisible="{Binding IsImage}" Width="136" Height="76" CornerRadius="{DynamicResource Mat.Radius}" ClipToBounds="True" Margin="0,0,14,0"
                             Background="{DynamicResource Mat.Surface2}" VerticalAlignment="Center">
@@ -75,9 +74,7 @@
                     </Border>
 
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="5">
-                      <Border IsVisible="{Binding HasOcrBadge}" HorizontalAlignment="Left" Background="{DynamicResource Mat.AccentSoft}"
-                              CornerRadius="{DynamicResource Mat.RadiusSm}" Padding="6,1"
-                              TextElement.Foreground="{DynamicResource Mat.AccentText}" TextElement.FontSize="{DynamicResource Mat.FontSizeXs}" TextElement.FontWeight="SemiBold">
+                      <Border IsVisible="{Binding HasOcrBadge}" HorizontalAlignment="Left" Theme="{StaticResource MatBadge.Soft}">
                         <StackPanel Orientation="Horizontal" Spacing="4">
                           <mat:MatIcon Icon="sparkles" Size="12" />
                           <TextBlock Text="OCR" />
@@ -99,7 +96,6 @@
                       </Panel>
                     </Button>
                   </Grid>
-                </Border>
               </DataTemplate>
             </ListBox.DataTemplates>
           </ListBox>
@@ -243,20 +239,16 @@
   </Grid>
 
   <UserControl.Styles>
-    <!-- The card of a row (ListBoxItem theme ThixClip.ClipRow): the surface with a line, a step darker under the pointer, chosen = a tint with the accent as its line. -->
-    <Style Selector="ListBoxItem Border.row">
-      <Setter Property="Background" Value="{DynamicResource Mat.Surface}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource Mat.Border}" />
+    <!-- A row is a card (MatCardRow: chosen = a tint with the accent as its line); a heading of a day is not a card (HistoryPage marks its container "heading"). -->
+    <Style Selector="ListBox#ClipList > ListBoxItem">
+      <Setter Property="Padding" Value="14,11,8,11" />
     </Style>
-    <Style Selector="ListBoxItem:pointerover Border.row">
-      <Setter Property="Background" Value="{DynamicResource Mat.Surface2}" />
-    </Style>
-    <Style Selector="ListBoxItem:selected Border.row">
-      <Setter Property="Background" Value="{DynamicResource Mat.AccentSoft}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource Mat.Accent}" />
-    </Style>
-    <Style Selector="ListBoxItem:focus-visible Border.row">
-      <Setter Property="BorderBrush" Value="{DynamicResource Mat.FocusRing}" />
+    <Style Selector="ListBox#ClipList > ListBoxItem.heading">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Cursor" Value="Arrow" />
     </Style>
     <!-- Icon-only buttons of the detail pane: square-ish, so six of them fit the narrow pane in one line -->
     <Style Selector="Button.icon">

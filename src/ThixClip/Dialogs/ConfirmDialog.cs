@@ -19,7 +19,6 @@ public sealed class ConfirmDialog : MatWindow
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ShowInTaskbar = false;
-        Icon = Ui.AppIcon;
         this.Use(BackgroundProperty, "Mat.Surface");
 
         var confirm = new Button

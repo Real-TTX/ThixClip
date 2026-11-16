@@ -29,7 +29,7 @@ public sealed class ViewerDialog : MatWindow
     private readonly Image? _image;
     private readonly ScrollViewer _scroller;
     private readonly SelectableTextBlock? _text;
-    private readonly TextBlock? _zoomLabel;
+    private readonly IconLabel? _zoomLabel;
     private bool _actualSize;
     private bool _closed;
 
@@ -41,7 +41,6 @@ public sealed class ViewerDialog : MatWindow
         ShowInTaskbar = false;
         MinWidth = 420;
         MinHeight = 300;
-        Icon = Ui.AppIcon;
         this.Use(BackgroundProperty, "Mat.Surface");
 
         var heading = new StackPanel
@@ -98,8 +97,8 @@ public sealed class ViewerDialog : MatWindow
             _scroller.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
             _scroller.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
 
-            _zoomLabel = new TextBlock();
-            var zoom = new Button { Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { new MatIcon { Icon = "search" }, _zoomLabel } } };
+            _zoomLabel = new IconLabel();
+            var zoom = new Button { Content = _zoomLabel };
             zoom.Click += (_, _) => ToggleZoom();
             ToolTip.SetTip(zoom, "Einpassen / Originalgröße (Leertaste oder Doppelklick)");
             actions.Children.Add(zoom);
@@ -199,6 +198,7 @@ public sealed class ViewerDialog : MatWindow
         _scroller.VerticalScrollBarVisibility = bars;
         _image.HorizontalAlignment = HorizontalAlignment.Center;
         _image.VerticalAlignment = VerticalAlignment.Center;
+        _zoomLabel.Icon = _actualSize ? "zoom-out" : "zoom-in"; // the sprite's zoom: in to the original size, out to fit
         _zoomLabel.Text = _actualSize ? "Einpassen" : "Originalgröße";
     }
 

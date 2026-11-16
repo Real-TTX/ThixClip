@@ -47,6 +47,7 @@ public partial class HistoryPage : UserControl
             var isRow = e.Index >= 0 && e.Index < _items.Count && _items[e.Index] is ClipRowViewModel;
             e.Container.IsEnabled = isRow;
             e.Container.Focusable = isRow;
+            e.Container.Classes.Set("heading", !isRow); // a heading of a day is not drawn as a card
         };
         ClipList.DoubleTapped += (_, e) =>
         {
