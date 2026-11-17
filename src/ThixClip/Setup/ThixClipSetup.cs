@@ -78,7 +78,7 @@ internal static class ThixClipSetup
         {
             MatSetupMode.Uninstall =>
             [
-                MatSetupStep.Uninstall("Programm, Startmenü-Eintrag, Desktop-Verknüpfung und Autostart werden entfernt. Einträge in ThixClip.Cloud bleiben in der Cloud."),
+                MatSetupStep.Uninstall("Programm, Startmenü-Eintrag, Desktop-Verknüpfung und Autostart werden entfernt. Einträge in der MatCloud bleiben in der Cloud."),
             ],
             MatSetupMode.Update =>
             [

@@ -3,7 +3,7 @@
 # ThixClip
 
 **Der Zwischenablage-Verlauf für Windows und macOS** – schnell, komplett per Tastatur bedienbar und auf Wunsch über
-**ThixClip.Cloud** auf allen deinen Computern gleich (auch im Browser).
+**MatCloud** auf allen deinen Computern gleich (auch im Browser).
 
 - **Tastenkürzel**: `Strg + Umschalt + V` (Windows) bzw. `⌃⌥V` (macOS) öffnet ThixClip aus jeder App – es hat Vorrang vor
   gleichen Kürzeln anderer Programme und ist in den Einstellungen änderbar.
@@ -28,16 +28,18 @@
   **MatDesktop**, dem Desktop-Toolkit von MatDesign (hell, dunkel oder wie das System).
 - **Tray / Menüleiste**, **Autostart**, **Setup** (Windows) bzw. **App-Bundle + DMG** (macOS), **OTA-Updates** mit
   optionalem **Full-Auto-Update**.
-- **ThixClip.Cloud** (Docker, Port 4950): Einträge, Favoriten und Löschungen werden zwischen allen Geräten abgeglichen,
-  im Browser (PWA) liest, sucht, kopiert und ergänzt man den Verlauf auch unterwegs.
+- **MatCloud** (die Cloud der Thix-Apps, eigenes Repository, Docker, Port 4950): Einträge, Favoriten und Löschungen werden
+  zwischen allen Geräten abgeglichen, im Browser liest, sucht, kopiert und ergänzt man den Verlauf auch unterwegs.
+  Angemeldet wird **im Browser** (jedes Konto der MatCloud, auch eines über MatIdentity ohne Passwort): ThixClip zeigt einen
+  Code, der Browser öffnet sich, dort bestätigen – fertig. Alternativ mit Benutzername und Passwort.
 
 | Verlauf (hell) | Verlauf (dunkel) |
 |---|---|
 | ![Verlauf](docs/images/main-history-light.png) | ![Verlauf dunkel](docs/images/main-history-dark.png) |
 
-| Einstellungen | Cloud im Browser | Cloud auf dem Telefon |
+| Einstellungen | Cloud: im Browser anmelden | Cloud: Code bestätigen |
 |---|---|---|
-| ![Einstellungen](docs/images/main-settings-light.png) | ![Cloud](docs/images/cloud-history.png) | ![Telefon](docs/images/cloud-phone-light-history.png) |
+| ![Einstellungen](docs/images/main-settings-light.png) | ![Cloud](docs/images/main-cloud-light.png) | ![Code](docs/images/main-cloud-code-light.png) |
 
 ## Bedienung per Tastatur
 
@@ -84,29 +86,23 @@ Deinstallieren über „Installierte Apps“.
 ThixClip lebt in der Menüleiste. Zum Einfügen in andere Apps fragt macOS einmal nach der Erlaubnis
 „Bedienungshilfen“ (ohne sie wird nur kopiert). Die App ist (noch) ad hoc signiert: beim ersten Start Rechtsklick › Öffnen.
 
-**Cloud** – auf einem Server mit Docker:
-
-```bash
-docker compose up -d
-```
-
-Dann `http://<server>:4950` öffnen: der Einrichtungsassistent legt den Administrator an. Für den Zugriff aus dem Internet
-gehört ein Reverse-Proxy mit HTTPS davor. In ThixClip unter Einstellungen › Cloud Adresse, Benutzer und Passwort eingeben –
-das Passwort wird nur für die Anmeldung verwendet, das Gerät bekommt ein eigenes Token (entziehbar unter Konto › Geräte).
-Details: [docs/CLOUD.md](docs/CLOUD.md).
+**Cloud** – die Cloud ist **MatCloud**, die gemeinsame Cloud aller Thix-Apps (eigenes Repository `MatCloud`, Docker,
+Port 4950; Installation dort beschrieben). In ThixClip unter Einstellungen › Cloud die Adresse eingeben und
+**„Im Browser anmelden“** wählen: ThixClip zeigt einen Code und öffnet die Seite der MatCloud; dort anmelden (mit Passwort
+oder über MatIdentity), prüfen, dass derselbe Code dasteht, und bestätigen. Für lokale Konten geht es auch
+**„Mit Benutzername und Passwort“** – das Passwort wird nur für die Anmeldung verwendet. Das Gerät bekommt so oder so ein
+eigenes Token (in der MatCloud unter den Geräten entziehbar). Die Speicherdauer gilt für das ganze Konto.
 
 ## Versionen, Kanäle, Updates
 
-| Branch | Version | Desktop-Kanal | Docker-Image |
-|---|---|---|---|
-| `main` | `0.1.<build>-<datum>` (z. B. `0.1.42-20261115`) | `release-channel` + Release `v<version>` | `ghcr.io/real-ttx/thixclip:latest`, `:release`, `:<version>` |
-| `dev` | `nightly-<build>-<datum>` | `nightly-channel` | `:nightly`, `:<version>` |
-| sonst / lokal | `local-<datum>` | – (keine Updates) | – |
+| Branch | Version | Desktop-Kanal |
+|---|---|---|
+| `main` | `0.1.<build>-<datum>` (z. B. `0.1.42-20261115`) | `release-channel` + Release `v<version>` |
+| `dev` | `nightly-<build>-<datum>` | `nightly-channel` |
+| sonst / lokal | `local-<datum>` | – (keine Updates) |
 
 Jede installierte Version prüft beim Start und alle 6 Stunden ihren eigenen Kanal (abschaltbar); mit
 „Updates automatisch installieren“ (Full-Auto-Update, bei neuen Installationen an) wird ohne Rückfrage aktualisiert und neu gestartet.
-Compose-Dateien: `docker-compose.yml` (Release), `docker-compose.dev.yml` (Nightly + pgAdmin),
-`docker-compose.local.yml` (aus dem Quellcode gebaut, + pgAdmin, Postgres auf 4952).
 
 ## Für Administratoren
 
@@ -115,7 +111,7 @@ Richtlinien (Wert 1): Windows `HKLM\SOFTWARE\Policies\ThixClip`, macOS Konfigura
 | Richtlinie | Wirkung |
 |---|---|
 | `LockConfiguration` | Einstellungen nur lesbar |
-| `DisableCloud` | keine Verbindung zu ThixClip.Cloud |
+| `DisableCloud` | keine Verbindung zur MatCloud |
 | `DisableUpdates` | keine Update-Prüfung, keine Installation |
 
 ## Entwicklung
@@ -123,14 +119,17 @@ Richtlinien (Wert 1): Windows `HKLM\SOFTWARE\Policies\ThixClip`, macOS Konfigura
 ```bash
 dotnet build ThixClip.slnx
 dotnet test tests/ThixClip.Tests
-dotnet test tests/ThixClip.Cloud.Tests
-./scripts/redeploy.ps1
+../MatCloud/scripts/redeploy.ps1   # die Cloud lokal (Nachbar-Repository MatCloud, http://localhost:4950)
 ```
 
-- `dotnet test tests/ThixClip.Tests` – Business-Layer, Sync gegen eine Cloud im Speicher und die Oberfläche headless
-  gerendert (Tastatur-Abläufe; mit `THIXCLIP_SCREENSHOTS=<ordner>` auch Screenshots aller Seiten hell/dunkel).
-  Mit `THIXCLIP_CLOUD_URL`, `THIXCLIP_CLOUD_USER`, `THIXCLIP_CLOUD_PASSWORD` läuft zusätzlich der Ende-zu-Ende-Test
-  zweier Geräte gegen eine echte Cloud (z. B. den lokalen Stack).
+- `dotnet test tests/ThixClip.Tests` – Business-Layer, Sync gegen eine MatCloud im Speicher (`FakeCloud`, auch die Anmeldung
+  im Browser) und die Oberfläche headless gerendert (Tastatur-Abläufe; mit `THIXCLIP_SCREENSHOTS=<ordner>` auch Screenshots
+  aller Seiten hell/dunkel). Mit `THIXCLIP_CLOUD_URL`, `THIXCLIP_CLOUD_USER`, `THIXCLIP_CLOUD_PASSWORD` läuft zusätzlich der
+  Ende-zu-Ende-Test zweier Geräte gegen eine echte MatCloud (z. B. den lokalen Stack, ein Konto mit Passwort).
+- Die Cloud ist **MatCloud** im Nachbar-Repository `../MatCloud` (ThixClips Serverseite ist dort das Modul `MatCloud.Apps.Clip`).
+  Ihr Vertrag (Routen, DTOs, `MatCloudClient`) liegt als **Kopie** in `src/ThixClip.Core/MatCloud/`: nie hier ändern, sondern in
+  MatCloud und neu kopieren mit `node ../MatCloud/tools/contract-copy.js src/ThixClip.Core`; ein Test prüft die Kopie
+  gegen `matcloud.version`.
 - `ThixClip.exe --self-test <bericht.txt>` prüft das veröffentlichte (getrimmte) Programm selbst – JSON, SQLite, Skia, OCR,
   Verknüpfungen, alle Fenster – in einem eigenen Temp-Ordner; die CI führt das bei jedem Windows-Build aus.
 - `dotnet run --project src/ThixClip -- --snapshot docs/images` (oder `ThixClip.exe --snapshot <ordner>`) zeichnet die Fenster
@@ -141,6 +140,6 @@ dotnet test tests/ThixClip.Cloud.Tests
   kopieren (`node tools/matdesktop-copy.js <pfad>/ThixClip/src/ThixClip` im MatDesign-Repository); ein Test prüft die Kopie.
 - `THIXCLIP_DATA_DIR=<ordner>` startet die App mit eigenem Datenordner (eigene Instanz, berührt nichts Installiertes).
 - Logo und Icons: `branding/` ([branding/README.md](branding/README.md)), neu rendern mit `cd tools && npm install && node render-icons.js`.
-- Aufbau, Regeln und Protokoll: [CLAUDE.md](CLAUDE.md), [docs/CLOUD.md](docs/CLOUD.md).
+- Aufbau und Regeln: [CLAUDE.md](CLAUDE.md).
 
 © Matthias Schmoldt

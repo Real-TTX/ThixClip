@@ -1,15 +1,17 @@
+using MatCloud.Contract;
+using MatCloud.Contract.Clip;
 using SkiaSharp;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
-using ThixClip.Shared;
 
 namespace ThixClip.Tests;
 
 /// <summary>
-/// The desktop app against a real, running ThixClip.Cloud: this computer (SyncService) and a second device (the API
+/// The desktop app against a real, running MatCloud with the clip module: this computer (SyncService) and a second device (the API
 /// directly) share one account. Runs only when THIXCLIP_CLOUD_URL, THIXCLIP_CLOUD_USER and THIXCLIP_CLOUD_PASSWORD are
-/// set, e.g. against the local stack (docker-compose.local.yml, test account in docs/CLOUD.md).
+/// set (a local account with a password), e.g. against the local stack of the sibling repository (../MatCloud/scripts/redeploy.ps1,
+/// http://localhost:4950).
 /// </summary>
 [Trait("Category", "E2E")]
 public sealed class CloudEndToEndTests : IDisposable
@@ -43,8 +45,10 @@ public sealed class CloudEndToEndTests : IDisposable
 
         // A second device sees both, image included.
         using var anonymous = CloudClient.Create(Url, null);
-        var login = await anonymous.LoginAsync(new DeviceLoginRequest(User, Password, $"E2E-Laptop-{marker}", "Test", "test"), CancellationToken.None);
+        var login = await anonymous.LoginAsync(User, Password, $"E2E-Laptop-{marker}", CancellationToken.None);
         using var laptop = CloudClient.Create(Url, login.Token);
+        Assert.Equal(CloudApps.Clip, login.Account.App);
+        Assert.Equal(SettingsService.Get().RetentionDays, (await laptop.GetSettingsAsync(CancellationToken.None)).RetentionDays);
         var all = await AllChangesAsync(laptop);
         var seenText = all.Single(clip => clip.SyncId == text.SyncId);
         Assert.Equal($"E2E {marker}: vom Desktop", seenText.Text);
@@ -64,7 +68,7 @@ public sealed class CloudEndToEndTests : IDisposable
             CopiedAt = now,
             UpdatedAt = now,
         };
-        await laptop.PushAsync(new PushRequest(
+        await laptop.PushAsync(new ClipPushRequest(
         [
             fromLaptop,
             seenImage with { IsFavorite = true, UpdatedAt = now },
@@ -104,7 +108,7 @@ public sealed class CloudEndToEndTests : IDisposable
         long since = 0;
         while (true)
         {
-            var changes = await client.GetChangesAsync(since, SyncContract.MaxBatchSize, CancellationToken.None);
+            var changes = await client.GetChangesAsync(since, ClipContract.MaxBatchSize, CancellationToken.None);
             foreach (var clip in changes.Clips)
             {
                 result[clip.SyncId] = clip;

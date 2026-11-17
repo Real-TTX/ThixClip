@@ -1,4 +1,4 @@
-using ThixClip.Shared;
+using MatCloud.Contract.Clip;
 
 namespace ThixClip.Core.Models;
 

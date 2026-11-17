@@ -1,9 +1,9 @@
+using MatCloud.Contract.Clip;
 using SkiaSharp;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
 using ThixClip.Core.Platform;
-using ThixClip.Shared;
 
 namespace ThixClip.Tests;
 

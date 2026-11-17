@@ -1,8 +1,9 @@
+using MatCloud.Contract;
+using MatCloud.Contract.Clip;
 using SkiaSharp;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
-using ThixClip.Shared;
 
 namespace ThixClip.Tests;
 
@@ -134,6 +135,87 @@ public sealed class SyncServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task A_sign_in_takes_the_retention_of_the_account()
+    {
+        _cloud.RetentionDays = 365;
+        await ConnectAsync();
+        Assert.Equal(365, SettingsService.Get().RetentionDays);
+        Assert.StartsWith("ThixClip/", _cloud.LastUserAgent);
+    }
+
+    [Fact]
+    public async Task Signing_in_in_the_browser_shows_the_code_opens_the_page_and_connects_once_it_is_confirmed()
+    {
+        ClipService.CaptureText("schon da");
+        _cloud.RetentionDays = 7;
+        DeviceLinkStart? shown = null;
+        string? opened = null;
+
+        var connected = await SyncService.ConnectInBrowserAsync(Server, "Test-PC", start =>
+        {
+            shown = start;
+            _cloud.ApproveLink(start.Code); // the person confirms the code in the browser
+        }, address => opened = address);
+        SyncService.Stop();
+
+        Assert.True(connected);
+        Assert.NotNull(shown);
+        Assert.Equal(shown.VerificationUrl, opened);
+        var cloud = SettingsService.Get().Cloud;
+        Assert.True(cloud.IsConnected);
+        Assert.Equal(Server, cloud.ServerUrl);
+        Assert.Equal(FakeCloud.UserName, cloud.UserName);
+        Assert.Equal("Test-PC", cloud.DeviceName);
+        Assert.Equal(7, SettingsService.Get().RetentionDays);
+
+        await SyncService.SyncOnceAsync();
+        Assert.Equal("schon da", Assert.Single(_cloud.Clips.Values).Text);
+    }
+
+    [Fact]
+    public async Task A_code_refused_in_the_browser_does_not_connect()
+    {
+        var error = await Assert.ThrowsAsync<BusinessException>(() =>
+            SyncService.ConnectInBrowserAsync(Server, "Test-PC", start => _cloud.DenyLink(start.Code), _ => { }));
+
+        Assert.Contains("abgelehnt", error.Message);
+        Assert.Null(error.Field);
+        Assert.False(SettingsService.Get().Cloud.IsConnected);
+        Assert.Equal(CloudState.Off, SyncService.Status.State);
+    }
+
+    [Fact]
+    public async Task An_expired_code_does_not_connect()
+    {
+        var error = await Assert.ThrowsAsync<BusinessException>(() =>
+            SyncService.ConnectInBrowserAsync(Server, "Test-PC", start => _cloud.ExpireLink(start.Code), _ => { }));
+
+        Assert.Contains("abgelaufen", error.Message);
+        Assert.False(SettingsService.Get().Cloud.IsConnected);
+    }
+
+    [Fact]
+    public async Task Cancelling_the_sign_in_in_the_browser_stops_waiting()
+    {
+        using var cancel = new CancellationTokenSource();
+        var connected = await SyncService.ConnectInBrowserAsync(Server, "Test-PC", _ => cancel.Cancel(), _ => { }, cancel.Token);
+
+        Assert.False(connected);
+        Assert.False(SettingsService.Get().Cloud.IsConnected);
+        Assert.Equal(CloudState.Off, SyncService.Status.State);
+    }
+
+    [Fact]
+    public async Task An_unreachable_cloud_is_shown_at_the_address()
+    {
+        CloudClient.HandlerForTests = () => new UnreachableHandler();
+        var error = await Assert.ThrowsAsync<BusinessException>(() => SyncService.ConnectInBrowserAsync(Server, "Test-PC", _ => { }, _ => { }));
+
+        Assert.Equal(nameof(CloudSettings.ServerUrl), error.Field);
+        Assert.Contains("MatCloud", error.Message);
+    }
+
+    [Fact]
     public async Task A_removed_device_is_signed_out_and_keeps_its_history()
     {
         await ConnectAsync();
@@ -174,5 +256,12 @@ public sealed class SyncServiceTests : IDisposable
     {
         await SyncService.ConnectAsync(Server, FakeCloud.UserName, FakeCloud.Password, "Test-PC");
         SyncService.Stop(); // the tests drive the rounds themselves
+    }
+
+    /// <summary>No network: every request fails like an address nobody answers.</summary>
+    private sealed class UnreachableHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromException<HttpResponseMessage>(new HttpRequestException("No such host is known."));
     }
 }

@@ -5,10 +5,10 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using MatCloud.Contract.Clip;
 using MatDesktop;
 using ThixClip.Controls;
 using ThixClip.Core.Business;
-using ThixClip.Shared;
 
 namespace ThixClip.Dialogs;
 

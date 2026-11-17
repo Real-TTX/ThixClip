@@ -8,7 +8,8 @@ namespace ThixClip.Tests;
 
 /// <summary>
 /// Every test gets its own data folder, an empty history, a clipboard in memory, a token store in memory and no machine
-/// policies. Nothing a test does touches the real history, settings, clipboard, Keychain or registry.
+/// policies. Nothing a test does touches the real history, settings, clipboard, Keychain or registry, and no address or folder
+/// opens (<see cref="Ui.OpenExternalForTests"/>).
 /// </summary>
 internal sealed class TestData : IDisposable
 {
@@ -27,6 +28,7 @@ internal sealed class TestData : IDisposable
         Clipboard = new FakeClipboard();
         NativeClipboard.UseForTests(Clipboard);
         CloudClient.HandlerForTests = null;
+        Ui.OpenExternalForTests = _ => { }; // never a real browser or folder
         SyncService.ResetForTests();
         ClipService.Initialize();
     }
@@ -40,6 +42,7 @@ internal sealed class TestData : IDisposable
         SyncService.Stop();
         HistoryStore.Close();
         CloudClient.HandlerForTests = null;
+        Ui.OpenExternalForTests = null;
         NativeClipboard.UseForTests(null);
         AccessPolicy.UsePolicyReaderForTests(null);
         TokenStore.UseMemoryForTests(false);

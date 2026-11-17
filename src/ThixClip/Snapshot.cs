@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using MatCloud.Contract;
 using MatDesktop;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
@@ -34,13 +35,14 @@ internal static class Snapshot
 
     private const string ProgramFolder = @"C:\Users\Anna\AppData\Local\Programs\ThixClip";
     private const string DataFolder = @"C:\Users\Anna\AppData\Local\ThixClip";
+    private const string CloudAddress = "https://cloud.example.com";
 
     private static readonly string[] Themes = ["light", "dark"];
 
     private static readonly string[] ThemedPictures =
     [
         "setup-welcome", "setup-options", "setup-progress", "setup-finish", "setup-update", "setup-uninstall",
-        "main-history", "main-settings", "main-about", "main-folded", "main-paused", "dialog-pause", "dialog-clear-history", "dialog-viewer", "toast",
+        "main-history", "main-settings", "main-cloud", "main-cloud-code", "main-about", "main-folded", "main-paused", "dialog-pause", "dialog-clear-history", "dialog-viewer", "toast",
     ];
 
     /// <summary>Every file a snapshot writes (the tray icons are the same in both themes).</summary>
@@ -206,6 +208,20 @@ internal static class Snapshot
         window.ShowSettings();
         Settle(window);
         Save(window, folder, $"main-settings-{theme}.png", report);
+
+        // The cloud tab: the sign-in in the browser first, then the code it shows while the person confirms it there (no network: the code is
+        // a fixed one).
+        window.ShowSettings(Pages.SettingsPage.CloudTab);
+        var settingsPage = (Pages.SettingsPage)window.PageHost.Content!;
+        settingsPage.ServerUrlBox.Text = CloudAddress;
+        Settle(window);
+        Save(window, folder, $"main-cloud-{theme}.png", report);
+        settingsPage.ShowBrowserCode(new DeviceLinkStart("KXQ4-7MPA", $"{CloudAddress}/Connect?code=KXQ4-7MPA", "", 600, 2));
+        Settle(window);
+        Save(window, folder, $"main-cloud-code-{theme}.png", report);
+        settingsPage.ShowSignInWay(password: false);
+        Settle(window);
+        window.SearchBox.Focus(); // the code took the focus; the next pictures show it in the search as always
 
         // The about page tells this machine's system and folder: the pictures show a typical installation instead.
         window.ShowAbout();

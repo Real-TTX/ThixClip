@@ -1,6 +1,6 @@
+using MatCloud.Contract.Clip;
 using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
-using ThixClip.Shared;
 
 namespace ThixClip.Core.Business;
 
@@ -38,7 +38,7 @@ public static class SettingsService
     /// </summary>
     public static async Task<AppSettings> SetRetentionAsync(int days)
     {
-        if (!SyncContract.IsValidRetention(days))
+        if (!ClipContract.IsValidRetention(days))
         {
             throw new BusinessException("Diese Speicherdauer gibt es nicht.", nameof(AppSettings.RetentionDays));
         }
@@ -78,7 +78,7 @@ public static class SettingsService
     /// <summary>The account's retention as the cloud reports it (no lock: it comes from the account).</summary>
     internal static void ApplyRetentionFromCloud(int days)
     {
-        if (!SyncContract.IsValidRetention(days) || Get().RetentionDays == days)
+        if (!ClipContract.IsValidRetention(days) || Get().RetentionDays == days)
         {
             return;
         }
@@ -96,7 +96,7 @@ public static class SettingsService
 
     private static void Validate(AppSettings settings)
     {
-        if (!SyncContract.IsValidRetention(settings.RetentionDays))
+        if (!ClipContract.IsValidRetention(settings.RetentionDays))
         {
             throw new BusinessException("Diese Speicherdauer gibt es nicht.", nameof(AppSettings.RetentionDays));
         }

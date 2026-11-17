@@ -1,9 +1,9 @@
 using System.Security.Cryptography;
 using System.Text;
+using MatCloud.Contract.Clip;
 using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
 using ThixClip.Core.Platform;
-using ThixClip.Shared;
 
 namespace ThixClip.Core.Business;
 
@@ -26,8 +26,8 @@ public sealed record ClipChange(ClipChangeKind Kind, ClipEntry? Entry = null);
 ///
 /// Rules:
 /// - The same content is one entry: copying it again moves it to the top (by content hash).
-/// - A text that is one http(s) address is a link. Text longer than <see cref="SyncContract.MaxTextLength"/> and images
-///   above <see cref="SyncContract.MaxImageBytes"/> are not recorded.
+/// - A text that is one http(s) address is a link. Text longer than <see cref="ClipContract.MaxTextLength"/> and images
+///   above <see cref="ClipContract.MaxImageBytes"/> are not recorded.
 /// - Favourites and pinned entries are kept forever; everything else goes after the retention time.
 /// - A deletion is kept as a tombstone until the cloud knows it (then it disappears on every device).
 /// </summary>
@@ -164,7 +164,7 @@ public static class ClipService
     /// <summary>Records a text (also used by tests).</summary>
     internal static ClipEntry? CaptureText(string text)
     {
-        if (string.IsNullOrWhiteSpace(text) || text.Length > SyncContract.MaxTextLength)
+        if (string.IsNullOrWhiteSpace(text) || text.Length > ClipContract.MaxTextLength)
         {
             return null;
         }
@@ -182,9 +182,9 @@ public static class ClipService
 
     internal static ClipEntry? CaptureImage(NormalizedImage image)
     {
-        if (image.Png.Length > SyncContract.MaxImageBytes)
+        if (image.Png.Length > ClipContract.MaxImageBytes)
         {
-            Log.Info($"Image of {image.Png.Length} bytes not recorded (limit {SyncContract.MaxImageBytes})");
+            Log.Info($"Image of {image.Png.Length} bytes not recorded (limit {ClipContract.MaxImageBytes})");
             return null;
         }
 
@@ -221,7 +221,7 @@ public static class ClipService
             throw new BusinessException("Der Text darf nicht leer sein.", nameof(ClipEntry.Text));
         }
 
-        if (text.Length > SyncContract.MaxTextLength)
+        if (text.Length > ClipContract.MaxTextLength)
         {
             throw new BusinessException("Der Text ist zu lang.", nameof(ClipEntry.Text));
         }
@@ -487,7 +487,7 @@ public static class ClipService
     /// The cloud accepted a pushed change. <paramref name="pushedUpdateDate"/> is the state that was sent: an entry
     /// that changed again meanwhile stays pending.
     /// </summary>
-    internal static void ConfirmPushed(PushResult result, DateTimeOffset pushedUpdateDate)
+    internal static void ConfirmPushed(ClipPushResult result, DateTimeOffset pushedUpdateDate)
     {
         var syncId = result.SyncId;
         ClipEntry? changed = null;

@@ -45,9 +45,18 @@ internal static class Ui
     /// <summary>Pause / resume recording: Ctrl+Shift+P, on macOS ⌘⇧P.</summary>
     public static string PauseShortcut => OperatingSystem.IsMacOS() ? "⌘⇧P" : "Strg+Umschalt+P";
 
+    /// <summary>Tests see what would be opened instead of starting the browser.</summary>
+    internal static Action<string>? OpenExternalForTests { get; set; }
+
     /// <summary>Opens a web address or a folder with the program the system uses for it (browser, Explorer, Finder).</summary>
     public static void OpenExternal(string pathOrUrl)
     {
+        if (OpenExternalForTests is { } open)
+        {
+            open(pathOrUrl);
+            return;
+        }
+
         try
         {
             var startInfo = OperatingSystem.IsMacOS()

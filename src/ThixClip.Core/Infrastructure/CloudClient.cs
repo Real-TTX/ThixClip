@@ -1,139 +1,72 @@
-using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text.Json;
-using ThixClip.Shared;
+using MatCloud.Contract;
+using MatCloud.Contract.Clip;
 
 namespace ThixClip.Core.Infrastructure;
 
-/// <summary>The cloud refused a request; <see cref="StatusCode"/> 401 means the device is no longer signed in.</summary>
-internal sealed class CloudException(HttpStatusCode statusCode, string message, string? field = null) : Exception(message)
-{
-    public HttpStatusCode StatusCode { get; } = statusCode;
-
-    public string? Field { get; } = field;
-
-    public bool IsUnauthorized => StatusCode == HttpStatusCode.Unauthorized;
-}
-
 /// <summary>
-/// HTTP calls of the sync protocol (<see cref="SyncContract"/>). One instance per server and token. Only
-/// <see cref="Business.SyncService"/> uses it.
+/// The HTTP calls of ThixClip to MatCloud: a thin wrapper around <see cref="MatCloudClient"/> (the copied contract) for the sign-in, the account
+/// and the routes of the clip module (<see cref="ClipContract"/>). One instance per server and token. Only <see cref="Business.SyncService"/> uses
+/// it. Errors are <see cref="CloudException"/> of the contract.
 /// </summary>
 internal sealed class CloudClient : IDisposable
 {
-    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan TransferTimeout = TimeSpan.FromMinutes(5);
+    private readonly MatCloudClient _client;
 
-    private readonly HttpClient _http;
-
-    public CloudClient(string serverUrl, string? token, HttpMessageHandler? handler = null)
-    {
-        _http = handler is null ? new HttpClient() : new HttpClient(handler, disposeHandler: false);
-        _http.BaseAddress = new Uri(serverUrl.TrimEnd('/') + "/");
-        _http.Timeout = Timeout.InfiniteTimeSpan;
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd($"ThixClip/{AppInfo.BuildNumber}");
-        _http.DefaultRequestHeaders.Add(SyncContract.ProtocolHeader, SyncContract.ProtocolVersion.ToString());
-        if (token is not null)
-        {
-            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        }
-    }
+    private CloudClient(string serverUrl, string? token) =>
+        _client = new MatCloudClient(serverUrl, token, UserAgent, HandlerForTests?.Invoke());
 
     /// <summary>Tests talk to an in-memory server.</summary>
     internal static Func<HttpMessageHandler>? HandlerForTests { get; set; }
 
-    public static CloudClient Create(string serverUrl, string? token) => new(serverUrl, token, HandlerForTests?.Invoke());
+    /// <summary>"ThixClip/0.1.42-20261115 (Windows)": the cloud shows the version with the device.</summary>
+    public static string UserAgent => $"ThixClip/{Token(AppInfo.Version)} ({Token(AppInfo.PlatformName)})";
 
-    public Task<DeviceLoginResponse> LoginAsync(DeviceLoginRequest request, CancellationToken cancellationToken) =>
-        SendAsync<DeviceLoginResponse>(HttpMethod.Post, SyncContract.DeviceLogin, JsonContent.Create(request, options: SyncContract.Json), RequestTimeout, cancellationToken);
+    public static CloudClient Create(string serverUrl, string? token) => new(serverUrl, token);
 
-    public Task LogoutAsync(CancellationToken cancellationToken) =>
-        SendAsync<object>(HttpMethod.Post, SyncContract.DeviceLogout, null, RequestTimeout, cancellationToken, expectBody: false);
+    public Task<DeviceLoginResponse> LoginAsync(string userName, string password, string deviceName, CancellationToken cancellationToken) =>
+        _client.LoginAsync(new DeviceLoginRequest(userName, password, deviceName, AppInfo.PlatformName, AppInfo.Version, CloudApps.Clip), cancellationToken);
 
-    public Task<AccountInfo> GetAccountAsync(CancellationToken cancellationToken) =>
-        SendAsync<AccountInfo>(HttpMethod.Get, SyncContract.Account, null, RequestTimeout, cancellationToken);
+    public Task<DeviceLinkStart> StartLinkAsync(string deviceName, CancellationToken cancellationToken) =>
+        _client.StartLinkAsync(new DeviceLinkRequest(deviceName, AppInfo.PlatformName, AppInfo.Version, CloudApps.Clip), cancellationToken);
 
-    public Task<AccountInfo> UpdateAccountAsync(AccountSettingsUpdate update, CancellationToken cancellationToken) =>
-        SendAsync<AccountInfo>(HttpMethod.Put, SyncContract.Account, JsonContent.Create(update, options: SyncContract.Json), RequestTimeout, cancellationToken);
+    public Task<DeviceLoginResponse> WaitForLinkAsync(DeviceLinkStart start, CancellationToken cancellationToken) =>
+        _client.WaitForLinkAsync(start, cancellationToken);
 
-    public Task<ChangeSet> GetChangesAsync(long since, int limit, CancellationToken cancellationToken) =>
-        SendAsync<ChangeSet>(HttpMethod.Get, $"{SyncContract.Changes}?since={since}&limit={limit}", null, RequestTimeout, cancellationToken);
+    public Task LogoutAsync(CancellationToken cancellationToken) => _client.LogoutAsync(cancellationToken);
+
+    public Task<AccountInfo> GetAccountAsync(CancellationToken cancellationToken) => _client.GetAccountAsync(cancellationToken);
+
+    public Task<ClipSettings> GetSettingsAsync(CancellationToken cancellationToken) =>
+        _client.SendAsync<ClipSettings>(HttpMethod.Get, ClipContract.Settings, null, MatCloudClient.RequestTimeout, cancellationToken);
+
+    public Task<ClipSettings> PutSettingsAsync(ClipSettings settings, CancellationToken cancellationToken) =>
+        _client.SendAsync<ClipSettings>(HttpMethod.Put, ClipContract.Settings, JsonContent.Create(settings, options: CloudContract.Json),
+            MatCloudClient.RequestTimeout, cancellationToken);
+
+    public Task<ClipChangeSet> GetChangesAsync(long since, int limit, CancellationToken cancellationToken) =>
+        _client.SendAsync<ClipChangeSet>(HttpMethod.Get, $"{ClipContract.Changes}?since={since}&limit={limit}", null, MatCloudClient.RequestTimeout, cancellationToken);
 
     public Task<WaitResult> WaitAsync(long since, int timeoutSeconds, CancellationToken cancellationToken) =>
-        SendAsync<WaitResult>(HttpMethod.Get, $"{SyncContract.Wait}?since={since}&timeout={timeoutSeconds}", null,
+        _client.SendAsync<WaitResult>(HttpMethod.Get, $"{ClipContract.Wait}?since={since}&timeout={timeoutSeconds}", null,
             TimeSpan.FromSeconds(timeoutSeconds + 20), cancellationToken);
 
-    public Task<PushResponse> PushAsync(PushRequest request, CancellationToken cancellationToken) =>
-        SendAsync<PushResponse>(HttpMethod.Post, SyncContract.Push, JsonContent.Create(request, options: SyncContract.Json), RequestTimeout, cancellationToken);
+    public Task<ClipPushResponse> PushAsync(ClipPushRequest request, CancellationToken cancellationToken) =>
+        _client.SendAsync<ClipPushResponse>(HttpMethod.Post, ClipContract.Push, JsonContent.Create(request, options: CloudContract.Json),
+            MatCloudClient.TransferTimeout, cancellationToken);
 
-    public async Task UploadImageAsync(Guid syncId, byte[] png, CancellationToken cancellationToken)
+    public Task UploadImageAsync(Guid syncId, byte[] png, CancellationToken cancellationToken) =>
+        _client.PutBytesAsync(ClipContract.Image(syncId), png, "image/png", cancellationToken);
+
+    public Task<byte[]?> DownloadImageAsync(Guid syncId, CancellationToken cancellationToken) =>
+        _client.GetBytesAsync(ClipContract.Image(syncId), cancellationToken);
+
+    public void Dispose() => _client.Dispose();
+
+    /// <summary>Only what a User-Agent header allows (letters, digits, '.', '-', '_').</summary>
+    private static string Token(string text)
     {
-        var content = new ByteArrayContent(png);
-        content.Headers.ContentType = new MediaTypeHeaderValue("image/png");
-        await SendAsync<object>(HttpMethod.Put, SyncContract.Image(syncId), content, TransferTimeout, cancellationToken, expectBody: false);
-    }
-
-    public async Task<byte[]?> DownloadImageAsync(Guid syncId, CancellationToken cancellationToken)
-    {
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TransferTimeout);
-        using var response = await _http.GetAsync(SyncContract.Image(syncId).TrimStart('/'), timeout.Token);
-        if (response.StatusCode == HttpStatusCode.NotFound)
-        {
-            return null;
-        }
-
-        await ThrowIfFailedAsync(response, timeout.Token);
-        return await response.Content.ReadAsByteArrayAsync(timeout.Token);
-    }
-
-    public void Dispose() => _http.Dispose();
-
-    private async Task<T> SendAsync<T>(HttpMethod method, string path, HttpContent? content, TimeSpan timeoutAfter,
-        CancellationToken cancellationToken, bool expectBody = true)
-    {
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(timeoutAfter);
-        using var request = new HttpRequestMessage(method, path.TrimStart('/')) { Content = content };
-        using var response = await _http.SendAsync(request, timeout.Token);
-        await ThrowIfFailedAsync(response, timeout.Token);
-        if (!expectBody)
-        {
-            return default!;
-        }
-
-        return await response.Content.ReadFromJsonAsync<T>(SyncContract.Json, timeout.Token)
-               ?? throw new CloudException(response.StatusCode, "Die Cloud hat eine leere Antwort geschickt.");
-    }
-
-    private static async Task ThrowIfFailedAsync(HttpResponseMessage response, CancellationToken cancellationToken)
-    {
-        if (response.IsSuccessStatusCode)
-        {
-            return;
-        }
-
-        ApiError? error = null;
-        try
-        {
-            if (response.Content.Headers.ContentType?.MediaType?.Contains("json", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                error = await response.Content.ReadFromJsonAsync<ApiError>(SyncContract.Json, cancellationToken);
-            }
-        }
-        catch (JsonException)
-        {
-        }
-
-        var message = error?.Message ?? response.StatusCode switch
-        {
-            HttpStatusCode.Unauthorized => "Anmeldung abgelehnt.",
-            HttpStatusCode.Forbidden => "Keine Berechtigung.",
-            HttpStatusCode.NotFound => "Diese Adresse ist keine ThixClip.Cloud.",
-            HttpStatusCode.TooManyRequests => "Zu viele Versuche – bitte kurz warten.",
-            _ => $"Die Cloud antwortet mit Fehler {(int)response.StatusCode}.",
-        };
-        throw new CloudException(response.StatusCode, message, error?.Field);
+        var token = new string(text.Select(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_' ? c : '-').ToArray()).Trim('-');
+        return token.Length > 0 ? token : "unknown";
     }
 }

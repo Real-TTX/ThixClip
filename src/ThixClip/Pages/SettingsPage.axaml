@@ -82,28 +82,69 @@
           <TabItem x:Name="CloudTabItem" Header="Cloud">
             <StackPanel>
               <TextBlock Theme="{StaticResource MatText.Muted}" Margin="0,0,0,16"
-                         Text="Mit ThixClip.Cloud ist dein Verlauf auf allen PCs und Macs gleich – neue Einträge, Favoriten und Löschungen werden sofort abgeglichen. Im Browser kommst du auch von unterwegs dran." />
+                         Text="Mit MatCloud ist dein Verlauf auf allen PCs und Macs gleich – neue Einträge, Favoriten und Löschungen werden sofort abgeglichen. Im Browser kommst du auch von unterwegs dran." />
               <controls:InfoBar x:Name="CloudMessage" />
 
-              <!-- Not connected: sign in -->
-              <StackPanel x:Name="CloudLogin" MaxWidth="460" HorizontalAlignment="Left">
-                <mat:MatFormField Label="Adresse der Cloud" controls:FormErrors.Field="ServerUrl" Hint="Die Adresse deiner ThixClip.Cloud, z. B. https://clip.example.com">
+              <!-- Not connected: sign in, in the browser (every account, also MatIdentity) or with user name and password -->
+              <StackPanel x:Name="CloudLogin" MaxWidth="520" HorizontalAlignment="Left">
+                <mat:MatFormField Label="Adresse der Cloud" controls:FormErrors.Field="ServerUrl" Hint="Die Adresse deiner MatCloud, z. B. https://cloud.example.com">
                   <TextBox x:Name="ServerUrlBox" Watermark="https://" />
                 </mat:MatFormField>
-                <mat:MatFormField Label="Benutzername" controls:FormErrors.Field="UserName">
-                  <TextBox x:Name="UserNameBox" />
-                </mat:MatFormField>
-                <mat:MatFormField Label="Passwort" controls:FormErrors.Field="Password" Hint="Wird nur für die Anmeldung gebraucht und nicht gespeichert.">
-                  <TextBox x:Name="PasswordBox" PasswordChar="●" />
-                </mat:MatFormField>
-                <mat:MatFormField Label="Name dieses Geräts" controls:FormErrors.Field="DeviceName" Hint="So erscheint dieser Computer in der Cloud unter „Geräte“.">
+                <mat:MatFormField Label="Name dieses Geräts" controls:FormErrors.Field="DeviceName" Hint="So erscheint dieser Computer in der MatCloud unter „Geräte“.">
                   <TextBox x:Name="DeviceNameBox" />
                 </mat:MatFormField>
-                <controls:ActionBar Margin="0,6,0,0">
-                  <Button x:Name="ConnectButton" Theme="{StaticResource MatButton.Primary}" Click="OnConnectClick" IsDefault="True">
-                    <controls:IconLabel Icon="login" Text="Anmelden" />
-                  </Button>
-                </controls:ActionBar>
+
+                <!-- The first way: in the browser -->
+                <StackPanel x:Name="BrowserSignIn" Margin="0,6,0,0">
+                  <TextBlock Theme="{StaticResource MatText.Muted}" Margin="0,0,0,12"
+                             Text="Die Anmeldung öffnet sich im Browser: Melde dich dort an – mit deinem Konto der MatCloud oder über MatIdentity – und bestätige den Code, den ThixClip dir zeigt." />
+                  <controls:ActionBar>
+                    <Button x:Name="BrowserConnectButton" Theme="{StaticResource MatButton.Primary}" Click="OnBrowserConnectClick" IsDefault="True">
+                      <controls:IconLabel Icon="globe" Text="Im Browser anmelden" />
+                    </Button>
+                    <Button x:Name="ShowPasswordSignInButton" Click="OnShowPasswordSignInClick">
+                      <controls:IconLabel Icon="key" Text="Mit Benutzername und Passwort" />
+                    </Button>
+                  </controls:ActionBar>
+                </StackPanel>
+
+                <!-- Waiting for the browser: the code to compare -->
+                <Border x:Name="BrowserCode" Theme="{StaticResource MatCard}" IsVisible="False" Margin="0,6,0,0">
+                  <StackPanel Spacing="10">
+                    <TextBlock Text="Dein Code" Theme="{StaticResource MatText.Muted}" />
+                    <SelectableTextBlock x:Name="BrowserCodeText" FontFamily="{DynamicResource Mat.Mono}" FontSize="{DynamicResource Mat.FontSize3xl}"
+                                         FontWeight="SemiBold" LetterSpacing="3" Foreground="{DynamicResource Mat.AccentText}" AutomationProperties.Name="Code" />
+                    <TextBlock TextWrapping="Wrap" FontWeight="SemiBold" Text="Bestätige den Code im Browser." />
+                    <TextBlock x:Name="BrowserCodeHint" Theme="{StaticResource MatText.Muted}"
+                               Text="Melde dich auf der Seite der MatCloud an und prüfe, dass dort derselbe Code steht. ThixClip verbindet sich, sobald du bestätigt hast." />
+                    <controls:ActionBar Margin="0,4,0,0">
+                      <Button x:Name="OpenLinkButton" Click="OnOpenLinkClick">
+                        <controls:IconLabel Icon="external" Text="Seite erneut öffnen" />
+                      </Button>
+                      <Button x:Name="CancelLinkButton" Click="OnCancelLinkClick">
+                        <controls:IconLabel Icon="x" Text="Abbrechen" />
+                      </Button>
+                    </controls:ActionBar>
+                  </StackPanel>
+                </Border>
+
+                <!-- The second way: user name and password of a local account -->
+                <StackPanel x:Name="PasswordSignIn" IsVisible="False" Margin="0,6,0,0">
+                  <mat:MatFormField Label="Benutzername" controls:FormErrors.Field="UserName">
+                    <TextBox x:Name="UserNameBox" />
+                  </mat:MatFormField>
+                  <mat:MatFormField Label="Passwort" controls:FormErrors.Field="Password" Hint="Wird nur für die Anmeldung gebraucht und nicht gespeichert.">
+                    <TextBox x:Name="PasswordBox" PasswordChar="●" />
+                  </mat:MatFormField>
+                  <controls:ActionBar Margin="0,6,0,0">
+                    <Button x:Name="ConnectButton" Theme="{StaticResource MatButton.Primary}" Click="OnConnectClick">
+                      <controls:IconLabel Icon="login" Text="Anmelden" />
+                    </Button>
+                    <Button x:Name="ShowBrowserSignInButton" Click="OnShowBrowserSignInClick">
+                      <controls:IconLabel Icon="globe" Text="Im Browser anmelden" />
+                    </Button>
+                  </controls:ActionBar>
+                </StackPanel>
               </StackPanel>
 
               <!-- Connected: state and actions -->

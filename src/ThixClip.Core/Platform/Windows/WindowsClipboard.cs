@@ -170,7 +170,7 @@ internal static class WindowsClipboard
         }
 
         var size = (long)(ulong)Win32.GlobalSize(handle);
-        if (size <= 0 || size > Shared.SyncContract.MaxImageBytes * 4)
+        if (size <= 0 || size > MatCloud.Contract.Clip.ClipContract.MaxImageBytes * 4)
         {
             return null;
         }

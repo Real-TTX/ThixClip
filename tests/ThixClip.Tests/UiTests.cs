@@ -5,12 +5,12 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using MatCloud.Contract.Clip;
 using MatDesktop;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
 using ThixClip.Pages;
-using ThixClip.Shared;
 
 [assembly: AvaloniaTestApplication(typeof(ThixClip.Tests.UiTestApp))]
 
@@ -435,6 +435,88 @@ public sealed class UiTests
     }
 
     [AvaloniaFact]
+    public void The_cloud_tab_signs_in_in_the_browser_with_the_keyboard()
+    {
+        using var data = new TestData();
+        var cloud = new FakeCloud();
+        CloudClient.HandlerForTests = () => cloud;
+        var opened = new List<string>();
+        Ui.OpenExternalForTests = opened.Add;
+        var window = Open();
+        window.ShowSettings(SettingsPage.CloudTab);
+        Settle(window);
+        var page = (SettingsPage)window.PageHost.Content!;
+        Assert.True(page.BrowserSignIn.IsVisible, "the browser is the first way");
+        Assert.False(page.PasswordSignIn.IsVisible);
+
+        // Enter in the address starts it: the code shows big, the page of the cloud opens, the fields wait.
+        page.ServerUrlBox.Text = "clip.example.test";
+        page.ServerUrlBox.Focus();
+        window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        WaitUntil(window, () => page.BrowserCode.IsVisible);
+        Assert.Equal("KXQ0-7MPA", page.BrowserCodeText.Text);
+        Assert.Equal(["https://cloud.example.test/Connect?code=KXQ0-7MPA"], opened);
+        Assert.False(page.ServerUrlBox.IsEnabled);
+        Assert.True(page.CancelLinkButton.IsFocused);
+        Save(window, "cloud-code");
+
+        // Abbrechen (Enter on the focused button) ends the wait.
+        window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        WaitUntil(window, () => page.BrowserSignIn.IsVisible);
+        Assert.False(page.BrowserCode.IsVisible);
+        Assert.True(page.ServerUrlBox.IsEnabled);
+        Assert.False(SettingsService.Get().Cloud.IsConnected);
+
+        // Again, and this time the person confirms the code in the browser: connected.
+        page.BrowserConnectButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        WaitUntil(window, () => page.BrowserCode.IsVisible);
+        cloud.ApproveLink(page.BrowserCodeText.Text!);
+        WaitUntil(window, () => page.CloudConnected.IsVisible, TimeSpan.FromSeconds(5));
+        Assert.True(SettingsService.Get().Cloud.IsConnected);
+        Assert.Equal("https://clip.example.test", page.CloudServerText.Text);
+        Assert.Equal("Anna (anna)", page.CloudAccountText.Text);
+        SyncService.Stop();
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void The_cloud_tab_signs_in_with_user_name_and_password_as_the_second_way()
+    {
+        using var data = new TestData();
+        var cloud = new FakeCloud();
+        CloudClient.HandlerForTests = () => cloud;
+        var window = Open();
+        window.ShowSettings(SettingsPage.CloudTab);
+        Settle(window);
+        var page = (SettingsPage)window.PageHost.Content!;
+
+        page.ShowPasswordSignInButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Settle(window);
+        Assert.True(page.PasswordSignIn.IsVisible);
+        Assert.False(page.BrowserSignIn.IsVisible);
+        Assert.True(page.UserNameBox.IsFocused);
+        Save(window, "cloud-password");
+
+        // A wrong password is shown at its field; Enter in a field signs in.
+        page.ServerUrlBox.Text = "https://clip.example.test";
+        page.UserNameBox.Text = FakeCloud.UserName;
+        page.PasswordBox.Text = "falsch";
+        page.PasswordBox.Focus();
+        window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        WaitUntil(window, () => PasswordError(page) is { Length: > 0 });
+        Assert.False(SettingsService.Get().Cloud.IsConnected);
+
+        page.PasswordBox.Text = FakeCloud.Password;
+        page.PasswordBox.Focus();
+        window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        WaitUntil(window, () => page.CloudConnected.IsVisible);
+        Assert.True(SettingsService.Get().Cloud.IsConnected);
+        Assert.Equal("", page.PasswordBox.Text);
+        SyncService.Stop();
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void The_snapshot_draws_every_window_in_light_and_dark_at_its_natural_size()
     {
         using var data = new TestData();
@@ -558,6 +640,34 @@ public sealed class UiTests
         }
     }
 
+    [Fact]
+    public void The_copy_of_the_MatCloud_contract_is_unchanged()
+    {
+        // The contract of MatCloud is copied from there (node ../MatCloud/tools/contract-copy.js src/ThixClip.Core) and never edited here:
+        // every file matches the hash its manifest names (SHA-256 of the text with LF line ends, the header line included), and the folder
+        // has no file the manifest does not name.
+        var folder = Path.Combine(Repository.Root, "src", "ThixClip.Core", "MatCloud");
+        var lines = File.ReadAllLines(Path.Combine(folder, "matcloud.version"));
+        Assert.StartsWith("MatCloud.Contract ", lines[0]);
+        var listed = new List<string>();
+        foreach (var line in lines.Skip(1).Where(line => line.Length > 0))
+        {
+            var (hash, file) = (line[..64], line[66..]);
+            listed.Add(file);
+            var text = File.ReadAllText(Path.Combine(folder, file)).Replace("\r\n", "\n", StringComparison.Ordinal);
+            Assert.StartsWith("// MatCloud.Contract ", text);
+            var actual = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text)));
+            Assert.True(hash == actual, $"MatCloud/{file} was changed: copy the contract again from MatCloud instead of editing it");
+        }
+
+        var present = Directory.GetFiles(folder, "*.cs", SearchOption.AllDirectories).Select(file => Path.GetRelativePath(folder, file).Replace('\\', '/'));
+        Assert.Equal(listed.Order(), present.Order());
+    }
+
+    private static string? PasswordError(SettingsPage page) =>
+        Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(page).OfType<MatFormField>()
+            .Single(field => ThixClip.Controls.FormErrors.GetField(field) == "Password").Error;
+
     private static (int Width, int Height) PictureSize(string folder, string name)
     {
         using var codec = SkiaSharp.SKCodec.Create(Path.Combine(folder, name));
@@ -577,11 +687,11 @@ public sealed class UiTests
         return window;
     }
 
-    /// <summary>Runs the dispatcher until the condition holds (debounce timers, background work), at most two seconds.</summary>
-    private static void WaitUntil(Window window, Func<bool> condition)
+    /// <summary>Runs the dispatcher until the condition holds (debounce timers, background work), at most two seconds (or <paramref name="limit"/>).</summary>
+    private static void WaitUntil(Window window, Func<bool> condition, TimeSpan? limit = null)
     {
         var watch = System.Diagnostics.Stopwatch.StartNew();
-        while (!condition() && watch.Elapsed < TimeSpan.FromSeconds(2))
+        while (!condition() && watch.Elapsed < (limit ?? TimeSpan.FromSeconds(2)))
         {
             Settle(window);
         }

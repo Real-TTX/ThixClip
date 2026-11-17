@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
   <!--
-    ThixClip.Cloud icon (PWA, 48 px and larger): the clipboard of the app icon with a cloud badge bottom right,
+    The cloud tile of ThixClip (home screen, 48 px and larger): the clipboard of the app icon with a cloud badge bottom right,
     so the web app and the desktop app are told apart on a home screen. Maskable: everything important sits inside
     the safe zone (centre circle of 80 %).
   -->

@@ -1,6 +1,6 @@
+using MatCloud.Contract.Clip;
 using Microsoft.Data.Sqlite;
 using ThixClip.Core.Models;
-using ThixClip.Shared;
 
 namespace ThixClip.Core.Infrastructure;
 

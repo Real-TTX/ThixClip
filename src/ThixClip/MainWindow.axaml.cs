@@ -7,6 +7,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using MatCloud.Contract.Clip;
 using MatDesktop;
 using ThixClip.Controls;
 using ThixClip.Core.Business;
@@ -14,7 +15,6 @@ using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
 using ThixClip.Core.Platform;
 using ThixClip.Pages;
-using ThixClip.Shared;
 
 namespace ThixClip;
 
@@ -295,10 +295,13 @@ public partial class MainWindow : MatWindow
         }
     }
 
+    /// <summary>The sign-in in the browser waits: the window stays next to the browser, so the code can be compared there.</summary>
+    private bool IsSigningInInBrowser => _settings.IsValueCreated && _settings.Value.IsSigningInInBrowser;
+
     private void HideWhenAnotherAppComesFirst()
     {
         IsActiveQuickWindow = false;
-        if (!IsVisible || _isPasting || OwnedWindows.Count > 0 || !SettingsService.Get().HideOnDeactivate)
+        if (!IsVisible || _isPasting || OwnedWindows.Count > 0 || !SettingsService.Get().HideOnDeactivate || IsSigningInInBrowser)
         {
             return;
         }
@@ -552,7 +555,7 @@ public partial class MainWindow : MatWindow
 
     private void InitializeRetention()
     {
-        RetentionChoice.ItemsSource = SyncContract.RetentionChoices.Select(Ui.RetentionText).ToList();
+        RetentionChoice.ItemsSource = ClipContract.RetentionChoices.Select(Ui.RetentionText).ToList();
         RetentionChoice.SelectionChanged += async (_, _) =>
         {
             if (RetentionChoice.SelectedIndex < 0)
@@ -560,7 +563,7 @@ public partial class MainWindow : MatWindow
                 return;
             }
 
-            var days = SyncContract.RetentionChoices[RetentionChoice.SelectedIndex];
+            var days = ClipContract.RetentionChoices[RetentionChoice.SelectedIndex];
             if (days == SettingsService.Get().RetentionDays)
             {
                 return;
@@ -581,7 +584,7 @@ public partial class MainWindow : MatWindow
     private void RefreshSidebar()
     {
         var settings = SettingsService.Get();
-        var index = SyncContract.RetentionChoices.ToList().IndexOf(settings.RetentionDays);
+        var index = ClipContract.RetentionChoices.ToList().IndexOf(settings.RetentionDays);
         if (RetentionChoice.SelectedIndex != index)
         {
             RetentionChoice.SelectedIndex = index;

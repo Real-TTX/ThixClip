@@ -1,10 +1,10 @@
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using MatCloud.Contract.Clip;
 using MatDesktop;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
-using ThixClip.Shared;
 
 namespace ThixClip.Tray;
 

@@ -1,6 +1,7 @@
+using MatCloud.Contract;
+using MatCloud.Contract.Clip;
 using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
-using ThixClip.Shared;
 
 namespace ThixClip.Core.Business;
 
@@ -21,8 +22,8 @@ public sealed record SyncStatus(CloudState State, string Message, DateTimeOffset
 }
 
 /// <summary>
-/// The connection to ThixClip.Cloud (see <see cref="SyncContract"/>): signing the device in and out and one background
-/// loop that keeps the history the same on every device:
+/// The connection to MatCloud (the clip module, see <see cref="ClipContract"/>): signing the device in (in the browser or with a password) and
+/// out, and one background loop that keeps the history the same on every device:
 ///   push local changes -> upload new images -> pull the changes of the account -> download missing images -> long poll.
 /// A local change wakes the loop at once (<see cref="Kick"/>), a change elsewhere ends the long poll. Without network the
 /// loop waits and tries again (2 s, 4 s ... 60 s); a removed device (401) signs out.
@@ -31,12 +32,13 @@ public static class SyncService
 {
     private const int LongPollSeconds = 25;
     private const int ImageDownloadsPerRound = 20;
+    private const string NotConnected = "Nicht verbunden";
 
     private static readonly object Gate = new();
     private static CancellationTokenSource? _stop;
     private static CancellationTokenSource _kick = new();
     private static Task? _loop;
-    private static SyncStatus _status = new(CloudState.Off, "Nicht verbunden");
+    private static SyncStatus _status = new(CloudState.Off, NotConnected);
 
     /// <summary>Raised when <see cref="Status"/> changes (any thread).</summary>
     public static event EventHandler<SyncStatus>? StatusChanged;
@@ -46,8 +48,50 @@ public static class SyncService
     public static bool IsConnected => SettingsService.Get().Cloud.IsConnected;
 
     /// <summary>
-    /// Signs this computer in at a cloud with the account's user name and password. The password is used once and never
-    /// stored; the device token that comes back is kept protected. Everything already in the history goes up.
+    /// Signs this computer in at MatCloud in the browser (works with every account, also one of MatIdentity without a password): MatCloud
+    /// answers a code, <paramref name="onCode"/> shows it, <paramref name="openAddress"/> opens the page where the person confirms it; then
+    /// this waits until it is confirmed, refused or expired. Returns false when <paramref name="cancellationToken"/> ended the wait. The
+    /// token that comes back is kept protected, everything already in the history goes up.
+    /// </summary>
+    public static async Task<bool> ConnectInBrowserAsync(string serverUrl, string deviceName, Action<DeviceLinkStart> onCode, Action<string> openAddress,
+        CancellationToken cancellationToken = default)
+    {
+        AccessPolicy.EnsureCloudAllowed();
+        var url = NormalizeServerUrl(serverUrl);
+        deviceName = CheckDeviceName(deviceName);
+        if (IsConnected)
+        {
+            await DisconnectAsync();
+        }
+
+        SetStatus(new SyncStatus(CloudState.Connecting, "Warte auf die Bestätigung im Browser …"));
+        DeviceLoginResponse login;
+        try
+        {
+            using var client = CloudClient.Create(url, null);
+            var start = await client.StartLinkAsync(deviceName, cancellationToken);
+            onCode(start);
+            openAddress(start.VerificationUrl);
+            login = await client.WaitForLinkAsync(start, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            SetStatus(new SyncStatus(CloudState.Off, NotConnected));
+            return false;
+        }
+        catch (Exception exception) when (exception is CloudException or HttpRequestException or TaskCanceledException or UriFormatException or System.Text.Json.JsonException)
+        {
+            SetStatus(new SyncStatus(CloudState.Off, NotConnected));
+            throw SignInFailed(exception, url);
+        }
+
+        await CompleteSignInAsync(url, login);
+        return true;
+    }
+
+    /// <summary>
+    /// Signs this computer in at MatCloud with the user name and password of a local account. The password is used once and never stored;
+    /// the device token that comes back is kept protected. Everything already in the history goes up.
     /// </summary>
     public static async Task ConnectAsync(string serverUrl, string userName, string password, string deviceName, CancellationToken cancellationToken = default)
     {
@@ -63,12 +107,7 @@ public static class SyncService
             throw new BusinessException("Bitte das Passwort angeben.", "Password");
         }
 
-        deviceName = string.IsNullOrWhiteSpace(deviceName) ? AppInfo.MachineName : deviceName.Trim();
-        if (deviceName.Length > 100)
-        {
-            throw new BusinessException("Der Gerätename ist zu lang (höchstens 100 Zeichen).", nameof(CloudSettings.DeviceName));
-        }
-
+        deviceName = CheckDeviceName(deviceName);
         if (IsConnected)
         {
             await DisconnectAsync();
@@ -79,36 +118,20 @@ public static class SyncService
         try
         {
             using var client = CloudClient.Create(url, null);
-            login = await client.LoginAsync(new DeviceLoginRequest(userName.Trim(), password, deviceName, AppInfo.PlatformName, AppInfo.Version), cancellationToken);
+            login = await client.LoginAsync(userName.Trim(), password, deviceName, cancellationToken);
         }
-        catch (CloudException exception)
+        catch (CloudException exception) when (exception.IsUnauthorized)
         {
-            SetStatus(new SyncStatus(CloudState.Off, "Nicht verbunden"));
-            throw new BusinessException(exception.IsUnauthorized ? "Benutzername oder Passwort stimmen nicht." : exception.Message,
-                exception.IsUnauthorized ? "Password" : exception.Field);
+            SetStatus(new SyncStatus(CloudState.Off, NotConnected));
+            throw new BusinessException("Benutzername oder Passwort stimmen nicht.", "Password");
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or UriFormatException or System.Text.Json.JsonException)
+        catch (Exception exception) when (exception is CloudException or HttpRequestException or TaskCanceledException or UriFormatException or System.Text.Json.JsonException)
         {
-            SetStatus(new SyncStatus(CloudState.Off, "Nicht verbunden"));
-            throw new BusinessException($"Die Cloud ist unter {url} nicht erreichbar.", nameof(CloudSettings.ServerUrl));
+            SetStatus(new SyncStatus(CloudState.Off, NotConnected));
+            throw SignInFailed(exception, url);
         }
 
-        var account = AccountKey(url, login.Account.UserName);
-        var protectedToken = TokenStore.Save(account, login.Token);
-        SettingsService.UpdateCloud(_ => new CloudSettings
-        {
-            ServerUrl = url,
-            UserName = login.Account.UserName,
-            DisplayName = login.Account.DisplayName,
-            DeviceName = login.Account.DeviceName,
-            DeviceId = login.DeviceId,
-            LastRevision = 0,
-            ProtectedToken = protectedToken,
-        });
-        SettingsService.ApplyRetentionFromCloud(login.Account.RetentionDays);
-        ClipService.MarkAllForUpload();
-        Log.Info($"Connected to {url} as device {login.DeviceId}");
-        Start();
+        await CompleteSignInAsync(url, login);
     }
 
     /// <summary>Signs this computer out (the cloud forgets the device); the local history stays.</summary>
@@ -130,7 +153,7 @@ public static class SyncService
         }
 
         Forget(cloud);
-        SetStatus(new SyncStatus(CloudState.Off, "Nicht verbunden"));
+        SetStatus(new SyncStatus(CloudState.Off, NotConnected));
     }
 
     /// <summary>Starts the background loop when this computer is connected.</summary>
@@ -139,7 +162,7 @@ public static class SyncService
         var cloud = SettingsService.Get().Cloud;
         if (!cloud.IsConnected || AccessPolicy.IsCloudDisabled)
         {
-            SetStatus(new SyncStatus(CloudState.Off, AccessPolicy.IsCloudDisabled ? "Durch Richtlinie deaktiviert" : "Nicht verbunden"));
+            SetStatus(new SyncStatus(CloudState.Off, AccessPolicy.IsCloudDisabled ? "Durch Richtlinie deaktiviert" : NotConnected));
             return;
         }
 
@@ -185,7 +208,7 @@ public static class SyncService
         }
     }
 
-    /// <summary>Tells the cloud the new retention of the account.</summary>
+    /// <summary>Tells MatCloud the new retention of the account (PUT <see cref="ClipContract.Settings"/>).</summary>
     internal static async Task PushRetentionAsync(int days)
     {
         var cloud = SettingsService.Get().Cloud;
@@ -197,35 +220,85 @@ public static class SyncService
         try
         {
             using var client = CloudClient.Create(cloud.ServerUrl, token);
-            await client.UpdateAccountAsync(new AccountSettingsUpdate(days), CancellationToken.None);
+            await client.PutSettingsAsync(new ClipSettings(days), CancellationToken.None);
         }
-        catch (Exception exception) when (exception is CloudException or HttpRequestException or TaskCanceledException)
+        catch (Exception exception) when (exception is CloudException or HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
             throw new BusinessException($"Die Speicherdauer konnte nicht in der Cloud gespeichert werden: {exception.Message}", nameof(AppSettings.RetentionDays));
         }
     }
 
-    /// <summary>The address as it is stored: http(s), no trailing slash, no path parts after the host's base.</summary>
+    /// <summary>The address as it is stored: http(s) ("https://" when it is missing), no trailing slash, no query.</summary>
     public static string NormalizeServerUrl(string serverUrl)
     {
-        var text = serverUrl.Trim();
-        if (text.Length == 0)
+        if (string.IsNullOrWhiteSpace(serverUrl))
         {
             throw new BusinessException("Bitte die Adresse der Cloud angeben.", nameof(CloudSettings.ServerUrl));
         }
 
-        if (!text.Contains("://", StringComparison.Ordinal))
+        try
         {
-            text = "https://" + text;
+            return MatCloudClient.NormalizeServerUrl(serverUrl);
+        }
+        catch (UriFormatException)
+        {
+            throw new BusinessException("Das ist keine gültige Adresse (z. B. https://cloud.example.com).", nameof(CloudSettings.ServerUrl));
+        }
+    }
+
+    private static string CheckDeviceName(string deviceName)
+    {
+        deviceName = string.IsNullOrWhiteSpace(deviceName) ? AppInfo.MachineName : deviceName.Trim();
+        if (deviceName.Length > CloudContract.MaxDeviceNameLength)
+        {
+            throw new BusinessException($"Der Gerätename ist zu lang (höchstens {CloudContract.MaxDeviceNameLength} Zeichen).", nameof(CloudSettings.DeviceName));
         }
 
-        if (!Uri.TryCreate(text, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp) ||
-            !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
+        return deviceName;
+    }
+
+    /// <summary>A failed sign-in for the person: the message of MatCloud at its field, or "not reachable" at the address.</summary>
+    private static BusinessException SignInFailed(Exception exception, string url) => exception is CloudException cloudException
+        ? new BusinessException(cloudException.Message, FieldOf(cloudException.Field))
+        : new BusinessException($"Die MatCloud ist unter {url} nicht erreichbar.", nameof(CloudSettings.ServerUrl));
+
+    /// <summary>A field MatCloud names ("deviceName") as the form here names it ("DeviceName"); the app itself has no field.</summary>
+    private static string? FieldOf(string? field) =>
+        string.IsNullOrEmpty(field) || field == "app" ? null : char.ToUpperInvariant(field[0]) + field[1..];
+
+    /// <summary>
+    /// Keeps the sign-in (the token protected, the account in the settings), takes the retention of the account (GET
+    /// <see cref="ClipContract.Settings"/>), marks the history for upload and starts the loop.
+    /// </summary>
+    private static async Task CompleteSignInAsync(string url, DeviceLoginResponse login)
+    {
+        var protectedToken = TokenStore.Save(AccountKey(url, login.Account.UserName), login.Token);
+        SettingsService.UpdateCloud(_ => new CloudSettings
         {
-            throw new BusinessException("Das ist keine gültige Adresse (z. B. https://clip.example.com).", nameof(CloudSettings.ServerUrl));
+            ServerUrl = url,
+            UserName = login.Account.UserName,
+            DisplayName = login.Account.DisplayName,
+            DeviceName = login.Account.DeviceName,
+            DeviceId = login.DeviceId,
+            LastRevision = 0,
+            ProtectedToken = protectedToken,
+        });
+
+        try
+        {
+            using var client = CloudClient.Create(url, login.Token);
+            var settings = await client.GetSettingsAsync(CancellationToken.None);
+            SettingsService.ApplyRetentionFromCloud(settings.RetentionDays);
+        }
+        catch (Exception exception) when (exception is CloudException or HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+        {
+            // The first change set brings the retention as well.
+            Log.Warning($"Reading the clip settings failed ({exception.Message})");
         }
 
-        return uri.GetLeftPart(UriPartial.Path).TrimEnd('/');
+        ClipService.MarkAllForUpload();
+        Log.Info($"Connected to {url} as device {login.DeviceId}");
+        Start();
     }
 
     private static async Task RunAsync(CancellationToken stopToken)
@@ -309,7 +382,7 @@ public static class SyncService
     internal static void ResetForTests()
     {
         Stop();
-        _status = new SyncStatus(CloudState.Off, "Nicht verbunden");
+        _status = new SyncStatus(CloudState.Off, NotConnected);
     }
 
     /// <summary>One round without the long poll (tests).</summary>
@@ -338,7 +411,7 @@ public static class SyncService
     {
         for (var round = 0; round < 50; round++)
         {
-            var pending = ClipService.PendingChanges(SyncContract.MaxBatchSize);
+            var pending = ClipService.PendingChanges(ClipContract.MaxBatchSize);
             if (pending.Count == 0)
             {
                 return;
@@ -348,7 +421,7 @@ public static class SyncService
             var clips = pending.Select(item => ClipService.ToDto(item.Entry, item.IsDeleted)).ToList();
             try
             {
-                var response = await client.PushAsync(new PushRequest(clips), cancellationToken);
+                var response = await client.PushAsync(new ClipPushRequest(clips), cancellationToken);
                 foreach (var result in response.Results)
                 {
                     ClipService.ConfirmPushed(result, sent.GetValueOrDefault(result.SyncId));
@@ -369,7 +442,7 @@ public static class SyncService
         {
             try
             {
-                var response = await client.PushAsync(new PushRequest([clip]), cancellationToken);
+                var response = await client.PushAsync(new ClipPushRequest([clip]), cancellationToken);
                 foreach (var result in response.Results)
                 {
                     ClipService.ConfirmPushed(result, sent.GetValueOrDefault(result.SyncId));
@@ -405,7 +478,7 @@ public static class SyncService
         while (true)
         {
             var since = SettingsService.Get().Cloud.LastRevision;
-            var changes = await client.GetChangesAsync(since, SyncContract.MaxBatchSize, cancellationToken);
+            var changes = await client.GetChangesAsync(since, ClipContract.MaxBatchSize, cancellationToken);
             foreach (var clip in changes.Clips)
             {
                 if (ClipService.ApplyRemote(clip) is { } needsImage)

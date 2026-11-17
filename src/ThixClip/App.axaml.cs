@@ -168,7 +168,7 @@ public partial class App : Application
         {
             if (status.State == CloudState.SignedOut)
             {
-                Ui.Post(() => _trayIcon?.ShowNotification("ThixClip.Cloud", status.Message, isWarning: true));
+                Ui.Post(() => _trayIcon?.ShowNotification("MatCloud", status.Message, isWarning: true));
             }
         };
     }

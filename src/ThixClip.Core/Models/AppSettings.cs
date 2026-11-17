@@ -1,4 +1,4 @@
-using ThixClip.Shared;
+using MatCloud.Contract.Clip;
 
 namespace ThixClip.Core.Models;
 
@@ -39,7 +39,7 @@ public sealed record AppSettings
     public DateTimeOffset? RecordingPausedUntil { get; init; }
 
     /// <summary>How long entries are kept (0 = forever). With the cloud it is the setting of the account.</summary>
-    public int RetentionDays { get; init; } = SyncContract.DefaultRetentionDays;
+    public int RetentionDays { get; init; } = ClipContract.DefaultRetentionDays;
 
     public ThemeChoice Theme { get; init; } = ThemeChoice.System;
 
@@ -62,10 +62,10 @@ public sealed record AppSettings
     public CloudSettings Cloud { get; init; } = new();
 }
 
-/// <summary>The connection to ThixClip.Cloud. The device token is stored protected (DPAPI / Keychain), not in here.</summary>
+/// <summary>The connection to MatCloud. The device token is stored protected (DPAPI / Keychain), not in here.</summary>
 public sealed record CloudSettings
 {
-    /// <summary>The address of the cloud, e.g. https://thixclip.example.com. Empty = not connected.</summary>
+    /// <summary>The address of the cloud, e.g. https://cloud.example.com. Empty = not connected.</summary>
     public string ServerUrl { get; init; } = "";
 
     public string UserName { get; init; } = "";

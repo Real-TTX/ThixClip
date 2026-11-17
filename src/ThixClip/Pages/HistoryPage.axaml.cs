@@ -4,13 +4,13 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using MatCloud.Contract.Clip;
 using MatDesktop;
 using ThixClip.Controls;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
 using ThixClip.Dialogs;
-using ThixClip.Shared;
 
 namespace ThixClip.Pages;
 

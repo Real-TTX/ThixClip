@@ -1,5 +1,9 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
+using MatCloud.Contract;
+using MatCloud.Contract.Clip;
 using MatDesktop;
 using ThixClip.Controls;
 using ThixClip.Core.Business;
@@ -7,7 +11,6 @@ using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
 using ThixClip.Core.Platform;
 using ThixClip.Dialogs;
-using ThixClip.Shared;
 
 namespace ThixClip.Pages;
 
@@ -23,11 +26,13 @@ public partial class SettingsPage : UserControl
 
     private bool _isLoading;
     private UpdateManifest? _availableUpdate;
+    private CancellationTokenSource? _browserSignIn;
+    private string? _browserAddress;
 
     public SettingsPage()
     {
         InitializeComponent();
-        RetentionChoice.ItemsSource = SyncContract.RetentionChoices.Select(Ui.RetentionText).ToList();
+        RetentionChoice.ItemsSource = ClipContract.RetentionChoices.Select(Ui.RetentionText).ToList();
 
         HotkeyRecorder.Recorded += (_, text) => Apply(() =>
         {
@@ -59,7 +64,7 @@ public partial class SettingsPage : UserControl
                 return;
             }
 
-            await ApplyAsync(() => SettingsService.SetRetentionAsync(SyncContract.RetentionChoices[RetentionChoice.SelectedIndex]));
+            await ApplyAsync(() => SettingsService.SetRetentionAsync(ClipContract.RetentionChoices[RetentionChoice.SelectedIndex]));
         };
         ImagesSwitch.IsCheckedChanged += (_, _) => Apply(() => SettingsService.Update(settings => settings with { RecordImages = ImagesSwitch.IsChecked == true }));
         OcrSwitch.IsCheckedChanged += (_, _) => Apply(() => SettingsService.Update(settings => settings with { RecognizeText = OcrSwitch.IsChecked == true }));
@@ -73,6 +78,9 @@ public partial class SettingsPage : UserControl
         UpdateCoordinator.Checked += (_, result) => ShowUpdateResult(result);
         Load();
     }
+
+    /// <summary>A sign-in in the browser is waiting for its confirmation (the main window stays open meanwhile).</summary>
+    public bool IsSigningInInBrowser => _browserSignIn is not null;
 
     public void SelectTab(string tab) => Tabs.SelectedItem = tab switch
     {
@@ -100,7 +108,7 @@ public partial class SettingsPage : UserControl
             HideSwitch.IsChecked = settings.HideOnDeactivate;
             CloseAfterCopySwitch.IsChecked = settings.CloseAfterCopy;
             ThemeChoice.SelectedIndex = (int)settings.Theme;
-            RetentionChoice.SelectedIndex = SyncContract.RetentionChoices.ToList().IndexOf(settings.RetentionDays);
+            RetentionChoice.SelectedIndex = ClipContract.RetentionChoices.ToList().IndexOf(settings.RetentionDays);
             foreach (var control in new Control[] { PasteSwitch, CloseAfterCopySwitch, HideSwitch, ThemeChoice, RetentionChoice, ImagesSwitch, OcrSwitch, ConfidentialSwitch, CheckUpdatesSwitch, AutoInstallSwitch })
             {
                 control.IsEnabled = !locked;
@@ -264,6 +272,90 @@ public partial class SettingsPage : UserControl
         Ui.OpenExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility");
     }
 
+    /// <summary>The first way: MatCloud shows a code, the browser opens, the person confirms it there; ThixClip waits (Abbrechen ends it).</summary>
+    private async void OnBrowserConnectClick(object? sender, RoutedEventArgs e)
+    {
+        if (_browserSignIn is not null)
+        {
+            return;
+        }
+
+        CloudMessage.Hide();
+        FormErrors.ShowError(this, null, "");
+        _browserSignIn = new CancellationTokenSource();
+        ServerUrlBox.IsEnabled = DeviceNameBox.IsEnabled = BrowserConnectButton.IsEnabled = ShowPasswordSignInButton.IsEnabled = false;
+        try
+        {
+            if (await SyncService.ConnectInBrowserAsync(ServerUrlBox.Text ?? "", DeviceNameBox.Text ?? "", start => Ui.Post(() => ShowBrowserCode(start)),
+                    Ui.OpenExternal, _browserSignIn.Token))
+            {
+                CloudMessage.Show("Verbunden. Dein Verlauf wird jetzt mit der Cloud abgeglichen.", InfoSeverity.Success);
+            }
+        }
+        catch (BusinessException exception)
+        {
+            if (!FormErrors.ShowError(this, exception.Field, exception.Message))
+            {
+                CloudMessage.Show(exception.Message, InfoSeverity.Error);
+            }
+        }
+        finally
+        {
+            _browserSignIn.Dispose();
+            _browserSignIn = null;
+            ServerUrlBox.IsEnabled = DeviceNameBox.IsEnabled = BrowserConnectButton.IsEnabled = ShowPasswordSignInButton.IsEnabled = true;
+            ShowSignInWay(password: false);
+            LoadCloud();
+        }
+    }
+
+    /// <summary>The code of a started sign-in in the browser, big, with the hint to confirm it there.</summary>
+    internal void ShowBrowserCode(DeviceLinkStart start)
+    {
+        _browserAddress = start.VerificationUrl;
+        BrowserCodeText.Text = start.Code;
+        BrowserSignIn.IsVisible = PasswordSignIn.IsVisible = false;
+        BrowserCode.IsVisible = true;
+        FocusAfterLayout(CancelLinkButton);
+    }
+
+    /// <summary>The way to sign in: in the browser (first) or with user name and password (second).</summary>
+    internal void ShowSignInWay(bool password)
+    {
+        BrowserCode.IsVisible = false;
+        BrowserSignIn.IsVisible = !password;
+        PasswordSignIn.IsVisible = password;
+        BrowserConnectButton.IsDefault = !password;
+        ConnectButton.IsDefault = password;
+    }
+
+    private void OnShowPasswordSignInClick(object? sender, RoutedEventArgs e)
+    {
+        ShowSignInWay(password: true);
+        FocusAfterLayout(string.IsNullOrEmpty(UserNameBox.Text) ? UserNameBox : PasswordBox);
+    }
+
+    private void OnShowBrowserSignInClick(object? sender, RoutedEventArgs e)
+    {
+        ShowSignInWay(password: false);
+        FocusAfterLayout(BrowserConnectButton);
+    }
+
+    /// <summary>A control that has just become visible takes the focus once it is laid out (before that it cannot).</summary>
+    private static void FocusAfterLayout(Control control) =>
+        Dispatcher.UIThread.Post(() => control.Focus(NavigationMethod.Tab), DispatcherPriority.Loaded);
+
+    private void OnOpenLinkClick(object? sender, RoutedEventArgs e)
+    {
+        if (_browserAddress is not null)
+        {
+            Ui.OpenExternal(_browserAddress);
+        }
+    }
+
+    private void OnCancelLinkClick(object? sender, RoutedEventArgs e) => _browserSignIn?.Cancel();
+
+    /// <summary>The second way: user name and password of a local account of MatCloud.</summary>
     private async void OnConnectClick(object? sender, RoutedEventArgs e)
     {
         ConnectButton.IsEnabled = false;

@@ -1,11 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
-using ThixClip.Shared;
+using MatCloud.Contract;
+using MatCloud.Contract.Clip;
 
 namespace ThixClip.Tests;
 
 /// <summary>
-/// ThixClip.Cloud in memory, after the rules of <see cref="SyncContract"/>: one revision counter, tombstones,
+/// MatCloud with its clip module in memory, after the rules of <see cref="CloudContract"/> and <see cref="ClipContract"/>: the sign-in
+/// (password, or in the browser: <see cref="ApproveLink"/> plays the person who confirms the code), one revision counter, tombstones,
 /// last writer wins, deleting wins, the same content under another key is merged. Enough to test the desktop side.
 /// </summary>
 internal sealed class FakeCloud : HttpMessageHandler
@@ -23,7 +25,22 @@ internal sealed class FakeCloud : HttpMessageHandler
 
     public long Revision { get; private set; }
 
-    public int RetentionDays { get; set; } = SyncContract.DefaultRetentionDays;
+    public int RetentionDays { get; set; } = ClipContract.DefaultRetentionDays;
+
+    /// <summary>The sign-ins in the browser by code ("KXQ0-7MPA").</summary>
+    public Dictionary<string, Link> Links { get; } = [];
+
+    /// <summary>The User-Agent of the last request.</summary>
+    public string? LastUserAgent { get; private set; }
+
+    /// <summary>The person confirms the code in the browser (signed in as <see cref="UserName"/>).</summary>
+    public void ApproveLink(string code) => SetLinkState(code, DeviceLinkState.Approved);
+
+    /// <summary>The person refuses the code in the browser.</summary>
+    public void DenyLink(string code) => SetLinkState(code, DeviceLinkState.Denied);
+
+    /// <summary>The code got too old.</summary>
+    public void ExpireLink(string code) => SetLinkState(code, DeviceLinkState.Expired);
 
     /// <summary>A change made on another device or in the browser.</summary>
     public ClipDto AddFromElsewhere(string? text, bool deleted = false, Guid? syncId = null, byte[]? png = null)
@@ -71,10 +88,60 @@ internal sealed class FakeCloud : HttpMessageHandler
     {
         var path = request.RequestUri!.AbsolutePath;
         var query = System.Web.HttpUtility.ParseQueryString(request.RequestUri.Query);
-
-        if (path == SyncContract.DeviceLogin)
+        LastUserAgent = request.Headers.UserAgent.ToString();
+        if (!request.Headers.TryGetValues(CloudContract.ProtocolHeader, out var protocol) || protocol.Single() != CloudContract.ProtocolVersion.ToString())
         {
-            var login = (await request.Content!.ReadFromJsonAsync<DeviceLoginRequest>(SyncContract.Json, cancellationToken))!;
+            return Json(HttpStatusCode.BadRequest, new ApiError("Das Protokoll fehlt."));
+        }
+
+        if (path == CloudContract.DeviceLink)
+        {
+            var start = (await request.Content!.ReadFromJsonAsync<DeviceLinkRequest>(CloudContract.Json, cancellationToken))!;
+            if (start.App != CloudApps.Clip)
+            {
+                return Json(HttpStatusCode.BadRequest, new ApiError("Diese App kennt die MatCloud nicht.", "app"));
+            }
+
+            lock (_gate)
+            {
+                var code = $"KXQ{Links.Count}-7MPA";
+                var link = new Link(code, Guid.NewGuid().ToString(), start.DeviceName);
+                Links[code] = link;
+                return Json(HttpStatusCode.OK, new DeviceLinkStart(code, $"https://cloud.example.test/Connect?code={code}", link.PollToken, 600, 1));
+            }
+        }
+
+        if (path == CloudContract.DeviceLinkPoll)
+        {
+            var poll = (await request.Content!.ReadFromJsonAsync<DeviceLinkPollRequest>(CloudContract.Json, cancellationToken))!;
+            lock (_gate)
+            {
+                if (Links.Values.FirstOrDefault(candidate => candidate.PollToken == poll.PollToken) is not { } link)
+                {
+                    return Json(HttpStatusCode.OK, new DeviceLinkPollResponse(DeviceLinkState.Expired));
+                }
+
+                if (link.State != DeviceLinkState.Approved)
+                {
+                    return Json(HttpStatusCode.OK, new DeviceLinkPollResponse(link.State));
+                }
+
+                // The token comes once; then the code is used up.
+                Links[link.Code] = link with { State = DeviceLinkState.Expired };
+                var token = Guid.NewGuid().ToString();
+                Tokens.Add(token);
+                return Json(HttpStatusCode.OK, new DeviceLinkPollResponse(DeviceLinkState.Approved, new DeviceLoginResponse(token, 8, Account(link.DeviceName))));
+            }
+        }
+
+        if (path == CloudContract.DeviceLogin)
+        {
+            var login = (await request.Content!.ReadFromJsonAsync<DeviceLoginRequest>(CloudContract.Json, cancellationToken))!;
+            if (login.App != CloudApps.Clip)
+            {
+                return Json(HttpStatusCode.BadRequest, new ApiError("Diese App kennt die MatCloud nicht.", "app"));
+            }
+
             if (login.UserName != UserName || login.Password != Password)
             {
                 return Json(HttpStatusCode.Unauthorized, new ApiError("Benutzername oder Passwort stimmen nicht."));
@@ -97,7 +164,7 @@ internal sealed class FakeCloud : HttpMessageHandler
             }
         }
 
-        if (path == SyncContract.DeviceLogout)
+        if (path == CloudContract.DeviceLogout)
         {
             lock (_gate)
             {
@@ -107,39 +174,58 @@ internal sealed class FakeCloud : HttpMessageHandler
             return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
 
-        if (path == SyncContract.Account)
+        if (path == CloudContract.Account)
+        {
+            return request.Method == HttpMethod.Get ? Json(HttpStatusCode.OK, Account("Test")) : new HttpResponseMessage(HttpStatusCode.MethodNotAllowed);
+        }
+
+        if (path == ClipContract.Settings)
         {
             if (request.Method == HttpMethod.Put)
             {
-                RetentionDays = (await request.Content!.ReadFromJsonAsync<AccountSettingsUpdate>(SyncContract.Json, cancellationToken))!.RetentionDays;
+                var update = (await request.Content!.ReadFromJsonAsync<ClipSettings>(CloudContract.Json, cancellationToken))!;
+                if (!ClipContract.IsValidRetention(update.RetentionDays))
+                {
+                    return Json(HttpStatusCode.BadRequest, new ApiError("Diese Speicherdauer gibt es nicht.", "retentionDays"));
+                }
+
+                RetentionDays = update.RetentionDays;
             }
 
-            return Json(HttpStatusCode.OK, Account("Test"));
+            return Json(HttpStatusCode.OK, new ClipSettings(RetentionDays));
         }
 
-        if (path == SyncContract.Changes)
+        if (path == ClipContract.Changes)
         {
             var since = long.Parse(query["since"] ?? "0");
             var limit = int.Parse(query["limit"] ?? "200");
             lock (_gate)
             {
                 var all = Clips.Values.Where(clip => clip.Revision > since).OrderBy(clip => clip.Revision).ToList();
-                return Json(HttpStatusCode.OK, new ChangeSet(all.Take(limit).ToList(), Revision, all.Count > limit, RetentionDays));
+                return Json(HttpStatusCode.OK, new ClipChangeSet(all.Take(limit).ToList(), Revision, all.Count > limit, RetentionDays));
             }
         }
 
-        if (path == SyncContract.Wait)
+        if (path == ClipContract.Wait)
         {
+            // A real long poll: answers once there is something above "since" (or after the timeout), so a running loop idles.
+            var since = long.Parse(query["since"] ?? "0");
+            var until = DateTimeOffset.UtcNow.AddSeconds(Math.Clamp(int.Parse(query["timeout"] ?? "0"), 0, CloudContract.MaxWaitSeconds));
+            while (Revision <= since && DateTimeOffset.UtcNow < until)
+            {
+                await Task.Delay(50, cancellationToken);
+            }
+
             return Json(HttpStatusCode.OK, new WaitResult(Revision));
         }
 
-        if (path == SyncContract.Push)
+        if (path == ClipContract.Push)
         {
-            var push = (await request.Content!.ReadFromJsonAsync<PushRequest>(SyncContract.Json, cancellationToken))!;
+            var push = (await request.Content!.ReadFromJsonAsync<ClipPushRequest>(CloudContract.Json, cancellationToken))!;
             lock (_gate)
             {
                 var results = push.Clips.Select(Apply).ToList();
-                return Json(HttpStatusCode.OK, new PushResponse(results, Revision));
+                return Json(HttpStatusCode.OK, new ClipPushResponse(results, Revision));
             }
         }
 
@@ -169,18 +255,18 @@ internal sealed class FakeCloud : HttpMessageHandler
         return new HttpResponseMessage(HttpStatusCode.NotFound);
     }
 
-    private PushResult Apply(ClipDto pushed)
+    private ClipPushResult Apply(ClipDto pushed)
     {
         if (Clips.TryGetValue(pushed.SyncId, out var existing))
         {
             if (existing.IsDeleted)
             {
-                return new PushResult(pushed.SyncId, existing.Revision, null, true, false);
+                return new ClipPushResult(pushed.SyncId, existing.Revision, null, true, false);
             }
 
             if (pushed.UpdatedAt < existing.UpdatedAt)
             {
-                return new PushResult(pushed.SyncId, existing.Revision, null, false, false);
+                return new ClipPushResult(pushed.SyncId, existing.Revision, null, false, false);
             }
 
             var updated = pushed with
@@ -190,7 +276,7 @@ internal sealed class FakeCloud : HttpMessageHandler
                 Text = pushed.IsDeleted ? null : pushed.Text,
             };
             Clips[pushed.SyncId] = updated;
-            return new PushResult(pushed.SyncId, updated.Revision, null, updated.IsDeleted, updated.Kind == ClipKind.Image && !updated.HasImage && !updated.IsDeleted);
+            return new ClipPushResult(pushed.SyncId, updated.Revision, null, updated.IsDeleted, updated.Kind == ClipKind.Image && !updated.HasImage && !updated.IsDeleted);
         }
 
         var same = Clips.Values.FirstOrDefault(clip => !clip.IsDeleted && !pushed.IsDeleted && clip.ContentHash == pushed.ContentHash);
@@ -198,16 +284,27 @@ internal sealed class FakeCloud : HttpMessageHandler
         {
             var moved = same with { CopiedAt = pushed.CopiedAt > same.CopiedAt ? pushed.CopiedAt : same.CopiedAt, Revision = ++Revision };
             Clips[same.SyncId] = moved;
-            return new PushResult(pushed.SyncId, moved.Revision, same.SyncId, false, false);
+            return new ClipPushResult(pushed.SyncId, moved.Revision, same.SyncId, false, false);
         }
 
         var created = pushed with { Revision = ++Revision, HasImage = false };
         Clips[pushed.SyncId] = created;
-        return new PushResult(pushed.SyncId, created.Revision, null, created.IsDeleted, created.Kind == ClipKind.Image && !created.IsDeleted);
+        return new ClipPushResult(pushed.SyncId, created.Revision, null, created.IsDeleted, created.Kind == ClipKind.Image && !created.IsDeleted);
     }
 
-    private AccountInfo Account(string deviceName) => new(UserName, "Anna", RetentionDays, deviceName, "test");
+    private AccountInfo Account(string deviceName) => new(UserName, "Anna", deviceName, CloudApps.Clip, "test");
+
+    private void SetLinkState(string code, DeviceLinkState state)
+    {
+        lock (_gate)
+        {
+            Links[code] = Links[code] with { State = state };
+        }
+    }
 
     private static HttpResponseMessage Json<T>(HttpStatusCode status, T body) =>
-        new(status) { Content = JsonContent.Create(body, options: SyncContract.Json) };
+        new(status) { Content = JsonContent.Create(body, options: CloudContract.Json) };
 }
+
+/// <summary>A sign-in in the browser as <see cref="FakeCloud"/> keeps it.</summary>
+internal sealed record Link(string Code, string PollToken, string DeviceName, DeviceLinkState State = DeviceLinkState.Pending);

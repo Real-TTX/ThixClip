@@ -16,7 +16,7 @@ namespace ThixClip.Core.Business;
 ///   macOS:   a configuration profile for the domain info.schmoldt.thixclip (/Library/Managed Preferences)
 /// Policies:
 ///   LockConfiguration   the settings are read-only (the history itself stays usable)
-///   DisableCloud        no connection to ThixClip.Cloud (nothing leaves the computer)
+///   DisableCloud        no connection to MatCloud (nothing leaves the computer)
 ///   DisableUpdates      no update check, no update installation
 /// </summary>
 public static class AccessPolicy

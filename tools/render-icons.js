@@ -6,12 +6,11 @@
 //   16-32 px   logo-small.svg  (thick clipboard, two lines)
 //   48+ px     logo-icon.svg   (clipboard in front of the history sheet)
 //   tray       logo-tray.svg   (one colour; macOS template image)
-//   cloud      logo-cloud.svg  (full-bleed tile with a cloud badge: PWA icons, maskable)
+//   cloud      logo-cloud.svg  (full-bleed tile with a cloud badge: home screen icons, maskable)
 // Output:
 //   branding/png/*                         every size as PNG (the macOS packaging script builds the .icns from them)
 //   src/ThixClip/Assets/thixclip.ico       Windows program and window icon (16-256)
 //   src/ThixClip/Assets/*.png              window logo, tray icons
-//   src/ThixClip.Cloud/wwwroot/img/*       favicon.ico, PWA icons, apple-touch-icon
 'use strict';
 
 const fs = require('fs');
@@ -22,7 +21,6 @@ const root = path.resolve(__dirname, '..');
 const branding = path.join(root, 'branding');
 const pngDir = path.join(branding, 'png');
 const appAssets = path.join(root, 'src', 'ThixClip', 'Assets');
-const cloudImg = path.join(root, 'src', 'ThixClip.Cloud', 'wwwroot', 'img');
 
 const svg = (name) => fs.readFileSync(path.join(branding, name), 'utf8');
 
@@ -71,7 +69,7 @@ function ico(images) {
 }
 
 (async () => {
-  for (const dir of [pngDir, appAssets, cloudImg]) fs.mkdirSync(dir, { recursive: true });
+  for (const dir of [pngDir, appAssets]) fs.mkdirSync(dir, { recursive: true });
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
   try {
     const small = svg('logo-small.svg');
@@ -105,18 +103,10 @@ function ico(images) {
     fs.writeFileSync(path.join(appAssets, 'tray-macos.png'), await render(browser, tray, 44, 0.82));
     fs.writeFileSync(path.join(pngDir, 'thixclip-tray-44.png'), await render(browser, tray, 44, 0.82));
 
-    // Cloud (PWA): favicon, home screen icons (maskable = full bleed), apple-touch-icon (no transparency).
-    fs.writeFileSync(path.join(cloudImg, 'favicon.ico'), ico([16, 32, 48].map((size) => ({ size, bytes: bySize[size] }))));
-    fs.copyFileSync(path.join(branding, 'logo-small.svg'), path.join(cloudImg, 'favicon.svg'));
-    fs.copyFileSync(path.join(branding, 'logo-icon.svg'), path.join(cloudImg, 'logo.svg'));
-    fs.copyFileSync(path.join(branding, 'logo-full.svg'), path.join(cloudImg, 'logo-full.svg'));
+    // The full-bleed tile with the cloud (home screen icons, maskable), as PNG in branding/png.
     for (const size of [180, 192, 512]) {
-      const bytes = await render(browser, cloud, size);
-      const name = size === 180 ? 'apple-touch-icon.png' : `icon-${size}.png`;
-      fs.writeFileSync(path.join(cloudImg, name), bytes);
-      fs.writeFileSync(path.join(pngDir, `thixclip-cloud-${size}.png`), bytes);
+      fs.writeFileSync(path.join(pngDir, `thixclip-cloud-${size}.png`), await render(browser, cloud, size));
     }
-    fs.writeFileSync(path.join(cloudImg, 'icon-maskable-512.png'), await render(browser, cloud, 512));
     fs.writeFileSync(path.join(pngDir, 'thixclip-full.png'),
       await (async () => {
         const context = await browser.newContext({ viewport: { width: 640, height: 200 } });
@@ -127,7 +117,7 @@ function ico(images) {
         return bytes;
       })());
 
-    console.log('Icons written to', pngDir, appAssets, cloudImg);
+    console.log('Icons written to', pngDir, appAssets);
   } finally {
     await browser.close();
   }

@@ -4,8 +4,9 @@ Guidance for working in this repository. Keep it in sync with the code: update i
 
 ## What ThixClip is
 
-A clipboard history for **Windows and macOS** (desktop app, tray / menu bar) plus **ThixClip.Cloud** (server, Docker, port
-**4950**) that keeps the history the same on every device and in the browser (PWA). The desktop app records text, links
+A clipboard history for **Windows and macOS** (desktop app, tray / menu bar). **MatCloud** (the cloud of all Thix apps, the sibling
+repository `../MatCloud`, Docker, port **4950**; ThixClip's server side is its module `MatCloud.Apps.Clip`) keeps the history the
+same on every device and in the browser. This repository has no server any more. The desktop app records text, links
 and images (with OCR), opens with a global shortcut (default `Ctrl+Shift+V` on Windows, `Ctrl+Option+V` on macOS, it takes
 precedence over other apps) and pastes the chosen entry into the app that was in front. **It must open instantly and be
 fully usable with the keyboard** (owner's requirement): the main window is built once and only shown/hidden, search
@@ -14,7 +15,7 @@ window is `docs/mockups/hauptfenster.png`.
 
 Stack: **.NET 10**, C#. Desktop: **Avalonia 11.3** with **MatDesktop** (the desktop toolkit of the sister project MatDesign:
 Fluent in the colours of the tokens, title bar, menu, tray, setup window), SQLite (Microsoft.Data.Sqlite), SkiaSharp.
-Cloud: ASP.NET Core **Razor Pages**, EF Core + **PostgreSQL**, **MatUi** of MatDesign. The desktop app follows MatDesign's
+The cloud speaks the copied contract of MatCloud (`src/ThixClip.Core/MatCloud/`). The desktop app follows MatDesign's
 rules DESK, TRAY and SETUP (MatDesign docs/DESKTOP.md).
 
 ## Build / run / test
@@ -25,15 +26,22 @@ rules DESK, TRAY and SETUP (MatDesign docs/DESKTOP.md).
   (test locations only), and the **UI rendered headless** with Avalonia + Skia (`UiTests`: keyboard flows; with
   `THIXCLIP_SCREENSHOTS=<folder>` screenshots of every page in light and dark – look at them). Tests never touch the real
   history, settings, clipboard, Keychain, registry values or LaunchAgents (`TestData`).
-  `THIXCLIP_CLOUD_URL` / `_USER` / `_PASSWORD` enable `CloudEndToEndTests` (two devices against a real cloud, e.g. the local stack).
-- `dotnet test tests/ThixClip.Cloud.Tests` – see docs/CLOUD.md (with `THIXCLIP_TEST_DB` also against PostgreSQL);
-  browser checks: `cd tests/e2e && npm install && node run.js http://localhost:4950`.
-- **Run the cloud: always rebuild and redeploy the stack:** `./scripts/redeploy.ps1` (`-Clean` drops the volumes).
+  `FakeCloud` is MatCloud with the clip module in memory: password and browser sign-in (`ApproveLink` / `DenyLink` /
+  `ExpireLink` play the person in the browser), `/api/v1/clip/settings`, changes, a real long poll, push, images.
+  `THIXCLIP_CLOUD_URL` / `_USER` / `_PASSWORD` enable `CloudEndToEndTests` (two devices against a real MatCloud, e.g. the local
+  stack, an account with a password).
+- **The cloud is MatCloud** (`../MatCloud`, its own tests and docs). Run it locally – always rebuilt and redeployed –
+  with `../MatCloud/scripts/redeploy.ps1` (http://localhost:4950).
+- **The MatCloud contract** (`src/ThixClip.Core/MatCloud/`: `CloudContract`, `CloudApps`, the sign-in DTOs, `MatCloudClient`,
+  `Clip/ClipContract`, `Clip/ClearRange`; namespaces `MatCloud.Contract` and `MatCloud.Contract.Clip`) is a COPY: never edit it
+  here. Change it in MatCloud (`src/MatCloud.Contract`) and copy it again with `node ../MatCloud/tools/contract-copy.js src/ThixClip.Core`;
+  the copy writes `matcloud.version` (version, SHA-256 of every file) and `UiTests.The_copy_of_the_MatCloud_contract_is_unchanged`
+  holds the files to it. What the contract lacks is worked around here and raised in MatCloud, not patched into the copy.
 - Run the desktop app with sample data: `THIXCLIP_DATA_DIR=<folder>` (own instance, never meets the installed one).
   Windows screenshots of the real window need a real screen; a disconnected RDP session has a 640x480 display and
   rejects `SendInput` – use the headless UI tests there.
 - Icons: `cd tools && npm install && node render-icons.js` renders `branding/*.svg` (installed Edge, headless) into
-  `branding/png`, `src/ThixClip/Assets`, `src/ThixClip.Cloud/wwwroot/img`. The line icons of the app are MatDesktop's
+  `branding/png` and `src/ThixClip/Assets`. The line icons of the app are MatDesktop's
   (every symbol of MatDesign's sprite, `<mat:MatIcon Icon="copy"/>`); an icon the sprite lacks is added to MatDesign first.
 - **MatDesktop** (`src/ThixClip/MatDesktop/`, compiled into the app) is a COPY from MatDesign: never edit it here. Change it in
   MatDesign and copy it again there with `node tools/matdesktop-copy.js <path>/ThixClip/src/ThixClip`; the copy writes
@@ -45,10 +53,10 @@ rules DESK, TRAY and SETUP (MatDesign docs/DESKTOP.md).
   token store, OCR, COM, every window) in a temporary data folder; CI runs it after every Windows publish.
 - **Snapshots:** `dotnet run --project src/ThixClip -- --snapshot docs/images` (or `ThixClip.exe --snapshot <folder>`) draws
   the windows headless (Avalonia.Headless + Skia, fonts of the machine) into PNGs, light and dark, 1x, natural size:
-  `setup-{welcome,options,progress,finish,update,uninstall}`, `main-{history,settings,about,folded,paused}`,
+  `setup-{welcome,options,progress,finish,update,uninstall}`, `main-{history,settings,cloud,cloud-code,about,folded,paused}`,
   `dialog-{pause,clear-history,viewer}`, `toast` (`-light`/`-dark`) and `tray-icon-{windows,macos}[-paused]` (64 px). Temporary data folder with `SampleHistory`, pinned
   `AppClock` (12.11.2026 14:32), `AppInfo.Pin` (1.0.0, release, ANNA-PC), clipboard/tokens/policies/autostart in memory; no
-  tray, hotkey, network or update check. Same output every run; MatDesign shows them and the README uses them. `UiTests` runs
+  tray, hotkey, network or update check (the code of `main-cloud-code` is a fixed one). Same output every run; MatDesign shows them and the README uses them. `UiTests` runs
   it in-process. A new window or page: add it to `Snapshot.cs` (and `FileNames`), look at the pictures. Pictures for the
   README or MatDesign come from here only: the screenshots of the UI tests show the real computer name and today's date.
 - `scripts/package-macos.sh` builds `ThixClip.app` (Info.plist with `LSUIElement`, icns, ad-hoc signature), the update zip and the dmg.
@@ -56,20 +64,26 @@ rules DESK, TRAY and SETUP (MatDesign docs/DESKTOP.md).
 ## Map
 
 ```
-src/ThixClip.Shared   the sync contract (SyncContract.cs): routes, DTOs, limits, JSON options. Only backwards-compatible changes.
-                      ClearRange.cs: the ranges of "Verlauf löschen" (letzte Stunde … gesamte Zeit), the same on desktop and in the browser
 src/ThixClip.Core     (no UI) models, business layer (static classes), infrastructure, native code
+  MatCloud/           COPY of MatCloud's contract (never edited here, see Build / run / test): CloudContract (sign-in routes, protocol
+                      header X-MatCloud-Protocol, JSON options), CloudApps ("clip"), DeviceLogin/DeviceLink* DTOs, AccountInfo, ApiError,
+                      WaitResult, MatCloudClient + CloudException, Sync.cs (the general sync, unused by ThixClip),
+                      Clip/ClipContract (routes /api/v1/clip/...: Settings, Changes, Wait, Push, Image, Thumbnail; ClipDto, ClipChangeSet,
+                      ClipPush*, ClipSettings, limits, retention choices), Clip/ClearRange (the ranges of "Verlauf löschen", the same in the browser)
   Models/             ClipEntry (immutable record; OcrState, SyncState), AppSettings (+ CloudSettings), ClipQuery, Hotkey, BusinessException
   Business/           ClipService (the history in memory + HistoryStore: capture, dedupe by content hash, query/search incl. OCR,
                       favourite/pin/delete, ClearHistory(ClearRange) by last copy time, BrowserLink / ReadImageToView for the viewer (AppPaths.OpenDirectory: files of old versions, emptied at start), retention, the sync hooks), ClipboardMonitor (polls the change counter, 250 ms),
                       OcrService (queue), HotkeyService (parse/format/display/validate, registration), SettingsService,
-                      SyncService (connect/disconnect, the loop: push -> upload images -> pull -> download images -> long poll),
+                      SyncService (sign-in in the browser: ConnectInBrowserAsync -> code via onCode, page via openAddress, wait for the
+                      confirmation; or ConnectAsync with user name and password; after either GET clip settings = the account's retention;
+                      PushRetentionAsync = PUT clip settings; disconnect; the loop: push -> upload images -> pull -> download images -> long poll),
                       AccessPolicy (LockConfiguration, DisableCloud, DisableUpdates), AutostartService (HKCU Run / LaunchAgent),
                       RecordingService (pause: 15/30 min, 1 h stored with its end, until restart in memory, until resumed),
                       InstallService (Windows self-installing exe), UpdateService + MacAppBundle (OTA from GitHub releases),
                       SampleHistory (the mockup's history, drawn with Skia: UI tests and snapshots, only into a test/temp folder)
   Infrastructure/     HistoryStore (SQLite history.db: ClipEntry, ClipImage), SettingsStore (settings.json), ImageCodec (SkiaSharp:
-                      normalise to PNG, DIB in/out, thumbnails), CloudClient (HTTP of the contract), TokenStore (DPAPI / Keychain),
+                      normalise to PNG, DIB in/out, thumbnails), CloudClient (thin wrapper around MatCloudClient: app "clip", User-Agent "ThixClip/<version> (<platform>)", the clip routes;
+                      HandlerForTests), TokenStore (DPAPI / Keychain),
                       AppPaths, AppInfo (Pin: fixed version for snapshots), AppClock (the time of history and UI; Pin for snapshots), Log, ProblemReports (unhandled exceptions -> logs/crash-*.txt + message box on Windows,
                       hangs -> logs/hang-*.txt + .dmp on Windows; shown once at the next start)
   Platform/           NativeClipboard (+ Windows/WindowsClipboard, Mac/MacClipboard), PasteTarget (+ WindowsPaste, MacPaste:
@@ -84,7 +98,8 @@ src/ThixClip          (Avalonia app)
                       Initialize installs MatDesktop's theme with ThixClip's accent (App.Accent, #2F6FED) and the app icon of every window (MatThemeOptions.Icon), MatText in German
   MatDesktop/         COPY of MatDesign's desktop toolkit (never edited here, see Build / run / test): MatTheme, MatWindow, MatTitleBar, MatNav,
                       MatIcon, MatSettingRow/MatFormField, MatTray/MatTrayMenu/MatTrayIcons, MatNotification, MatSetupWindow, MatVersion ...
-  Ui                  helpers: app icon and logo, Theme(key) for object initializers, the UI thread, opening addresses, texts of times
+  Ui                  helpers: app icon and logo, Theme(key) for object initializers, the UI thread, opening addresses (OpenExternalForTests:
+                      tests never open a browser), texts of times
   UiWatchdog          knocks on the UI thread every second; 8 s without an answer = hang report (ProblemReports.WriteHang)
   SelfTest            --self-test of the published program (CI)
   Snapshot            --snapshot <folder>: every window as PNG, headless (see Build / run / test)
@@ -97,7 +112,9 @@ src/ThixClip          (Avalonia app)
                       Einfügen, Kopieren, Öffnen, Anheften, Favorit … Löschen; Ctrl/Cmd+click, +O or a click on the image opens the viewer; Delete takes the chosen
                       entry and keeps the focus; count / notes bottom right; the chosen row is scrolled into view only after
                       layout (BringIntoView), else the virtualizing panel leaves a growing gap; adaptive below 820 px), ClipRowViewModel, SettingsPage
-                      (tabs Allgemein | Aufzeichnung | Cloud | Updates | Erweitert), AboutPage (update card -> Einstellungen › Updates)
+                      (tabs Allgemein | Aufzeichnung | Cloud | Updates | Erweitert; Cloud: address and device name, then "Im Browser anmelden"
+                      (primary: the code big in a card, "Bestätige den Code im Browser", Seite erneut öffnen, Abbrechen) or "Mit Benutzername
+                      und Passwort" (second way)), AboutPage (update card -> Einstellungen › Updates)
   Controls/           ThixClip's own, ONE code base per control: IconLabel (a sprite icon and a text; MatIcon.IsFilled for a chosen star or pin),
                       ActionBar (left, positive -> negative, Separated gap before delete), FormErrors (FormErrors.Field on a MatFormField:
                       shows BusinessException.Field), InfoBar (like mat-alert), KeyCaps (MatKeyCap), HotkeyRecorder
@@ -109,21 +126,20 @@ src/ThixClip          (Avalonia app)
   Dialogs/            ConfirmDialog, ClearHistoryDialog ("Verlauf löschen" as in a browser: range list with counts, Enter deletes;
                       Ctrl/Cmd+Shift+Delete or the button below the list), PauseDialog (how long), ViewerDialog ("Öffnen" inside ThixClip: image fitted / 100 %, text selectable; Enter pastes, Ctrl/Cmd+C copies, Esc closes – no other program, no file), ProblemReportDialog (crash / hang
                       of the last run: the report to read and copy, the log folder)
-src/ThixClip.Cloud    the server – map, pages, API, data model: docs/CLOUD.md
-tests/ThixClip.Tests  desktop tests (see above); tests/ThixClip.Cloud.Tests, tests/e2e: the cloud
+tests/ThixClip.Tests  the tests (see above); FakeCloud = MatCloud in memory
 ```
 
 ## Conventions
 
 - **Microsoft C# coding conventions**, file-scoped namespaces, `_camelCase` fields, human-readable names, early returns.
 - **Business layer = static classes.** UI never touches `HistoryStore`, `SettingsStore`, files, registry or HTTP; page models
-  never query. Validation **and permission checks** (AccessPolicy, connection state; in the cloud: the acting user) live in
-  the business layer. Errors are `BusinessException(message, field)`; the UI shows them at the `MatFormField` whose
-  `controls:FormErrors.Field` is that `Field`.
-- **Relational rules** (Postgres and the local SQLite): PascalCase tables/columns, key `Id` (64 bit), `CreateDate`,
-  `CreateUserId`, `UpdateDate`, `UpdateUserId`, `UpdateState` (0 deleted, 1 created, 2 updated) for soft deletes / tombstones,
-  a `Token` uuid where a key is a secret (UserSession, Device).
-- **Sync rules** (both sides): one revision sequence per server; last writer wins by `UpdatedAt`; deleting wins and leaves a
+  never query. Validation **and permission checks** (AccessPolicy, connection state) live in the business layer. Errors are
+  `BusinessException(message, field)`; the UI shows them at the `MatFormField` whose `controls:FormErrors.Field` is that
+  `Field`. A `CloudException` of MatCloud becomes a `BusinessException` in `SyncService` (its camelCase field "deviceName" ->
+  "DeviceName"; "app" -> no field); the business layer gets what it must not do itself (opening the browser) as a delegate.
+- **Relational rules** (the local SQLite, like MatCloud's Postgres): PascalCase tables/columns, key `Id` (64 bit), `CreateDate`,
+  `CreateUserId`, `UpdateDate`, `UpdateUserId`, `UpdateState` (0 deleted, 1 created, 2 updated) for soft deletes / tombstones.
+- **Sync rules** (here and in MatCloud's clip module): one revision sequence per server; last writer wins by `UpdatedAt`; deleting wins and leaves a
   tombstone without content; the same content (SHA-256 of the UTF-8 text / the normalised PNG) under another key is merged
   (`MergedInto`); images go up after their entry (`NeedsImage`); retention is an account setting. Never log clipboard
   contents, passwords or tokens.
@@ -153,7 +169,4 @@ tests/ThixClip.Tests  desktop tests (see above); tests/ThixClip.Cloud.Tests, tes
 - `.github/workflows/desktop.yml`: Windows (test, publish win-x64 single file = `ThixClipSetup.exe`), macOS (test, publish
   osx-arm64 + osx-x64, `package-macos.sh` → dmg/zip), publish (manifest `thixclip-update.json`, rolling releases
   `release-channel` / `nightly-channel`, versioned release `v<version>` on main).
-- `.github/workflows/cloud.yml`: tests (with a Postgres service) and the multi-arch image `ghcr.io/real-ttx/thixclip`
-  (`:latest`/`:release`/`:<version>` from main, `:nightly`/`:<version>` from dev). Compose files: `docker-compose.yml`
-  (release), `docker-compose.dev.yml` (nightly + pgAdmin), `docker-compose.local.yml` (build + pgAdmin + Postgres on 4952),
-  no variables, one stack each, names without repetition (services `web`, `db`, volumes `web-data`, `db-data`).
+- The server, its image and its compose files are MatCloud's (`../MatCloud`); this repository builds only the desktop app.

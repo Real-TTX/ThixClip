@@ -34,7 +34,7 @@
               </Grid>
             </Border>
             <TextBlock TextWrapping="Wrap" LineHeight="21"
-                       Text="ThixClip merkt sich, was du kopierst – Texte, Links und Bilder samt erkanntem Text – und holt es mit einem Tastenkürzel zurück. Mit ThixClip.Cloud ist der Verlauf auf all deinen Computern gleich und auch im Browser erreichbar." />
+                       Text="ThixClip merkt sich, was du kopierst – Texte, Links und Bilder samt erkanntem Text – und holt es mit einem Tastenkürzel zurück. Mit MatCloud ist der Verlauf auf all deinen Computern gleich und auch im Browser erreichbar." />
             <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto">
               <TextBlock Text="Build" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
               <TextBlock Grid.Column="1" x:Name="BuildText" Margin="0,3" />

@@ -4,6 +4,8 @@
     Models, business layer (static classes), infrastructure and the native parts of the desktop app (clipboard, global
     hotkey, paste, OCR) for Windows and macOS. No UI. Windows-only code is guarded by OperatingSystem.IsWindows() or
     [SupportedOSPlatform("windows")]; the Windows OCR engine needs the Windows target framework ("#if WINDOWS").
+    MatCloud/ is a COPY of the contract of MatCloud (routes, DTOs, MatCloudClient): never edited here, copied again with
+    node ../MatCloud/tools/contract-copy.js src/ThixClip.Core (see CLAUDE.md).
   -->
   <PropertyGroup>
     <TargetFramework>$(DesktopTargetFramework)</TargetFramework>
@@ -21,10 +23,6 @@
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.15" />
     <PackageReference Include="SkiaSharp" Version="2.88.9" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.15" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\ThixClip.Shared\ThixClip.Shared.csproj" />
   </ItemGroup>
 
 </Project>

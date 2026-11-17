@@ -3,12 +3,13 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Avalonia.Threading;
+using MatCloud.Contract;
+using MatCloud.Contract.Clip;
 using SkiaSharp;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Models;
 using ThixClip.Core.Platform;
-using ThixClip.Shared;
 
 namespace ThixClip;
 
@@ -61,12 +62,12 @@ internal static class SelfTest
             return Task.FromResult("");
         });
 
-        await Check("sync contract (JSON)", () =>
+        await Check("MatCloud contract (JSON)", () =>
         {
             var now = DateTimeOffset.UtcNow;
             var clip = new ClipDto { SyncId = Guid.NewGuid(), Kind = ClipKind.Text, Text = "x", ContentHash = "AB", Revision = 3, CreatedAt = now, CopiedAt = now, UpdatedAt = now };
-            var json = JsonSerializer.Serialize(new ChangeSet([clip], 3, false, 30), SyncContract.Json);
-            var back = JsonSerializer.Deserialize<ChangeSet>(json, SyncContract.Json);
+            var json = JsonSerializer.Serialize(new ClipChangeSet([clip], 3, false, 30), CloudContract.Json);
+            var back = JsonSerializer.Deserialize<ClipChangeSet>(json, CloudContract.Json);
             Ensure(back is { Latest: 3 } && back.Clips[0].SyncId == clip.SyncId, "change set not read back");
             return Task.FromResult("");
         });
