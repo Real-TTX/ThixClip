@@ -33,6 +33,9 @@ internal sealed class CloudClient : IDisposable
     public Task<DeviceLoginResponse> WaitForLinkAsync(DeviceLinkStart start, CancellationToken cancellationToken) =>
         _client.WaitForLinkAsync(start, cancellationToken);
 
+    public Task<DeviceLoginResponse?> RedeemHandoffAsync(DeviceHandoff handoff, CancellationToken cancellationToken) =>
+        _client.RedeemHandoffAsync(handoff, cancellationToken);
+
     public Task LogoutAsync(CancellationToken cancellationToken) => _client.LogoutAsync(cancellationToken);
 
     public Task<AccountInfo> GetAccountAsync(CancellationToken cancellationToken) => _client.GetAccountAsync(cancellationToken);

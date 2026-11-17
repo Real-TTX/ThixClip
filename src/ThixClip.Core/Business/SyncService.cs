@@ -134,6 +134,55 @@ public static class SyncService
         await CompleteSignInAsync(url, login);
     }
 
+    /// <summary>
+    /// At start: the sign-in ThixLauncher left when it installed ThixClip (<see cref="CloudHandoff"/>). While this computer is not connected,
+    /// ThixClip fetches its own token with it and is connected without the browser; the hand-over is removed when it was used or had expired, and
+    /// kept when the cloud did not answer (the next start tries again). Returns the account it signed in with, or null. Never throws.
+    /// </summary>
+    public static async Task<string?> ConnectFromLauncherAsync(CancellationToken cancellationToken = default)
+    {
+        if (IsConnected || AccessPolicy.IsCloudDisabled)
+        {
+            CloudHandoff.Remove(CloudApps.Clip);
+            return null;
+        }
+
+        if (CloudHandoff.Find(CloudApps.Clip) is not { } handoff)
+        {
+            return null;
+        }
+
+        string url;
+        DeviceLoginResponse? login;
+        try
+        {
+            url = NormalizeServerUrl(handoff.ServerUrl);
+            using var client = CloudClient.Create(url, null);
+            login = await client.RedeemHandoffAsync(handoff, cancellationToken);
+        }
+        catch (BusinessException)
+        {
+            CloudHandoff.Remove(CloudApps.Clip);
+            return null;
+        }
+        catch (Exception exception) when (exception is CloudException or HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+        {
+            Log.Warning($"The sign-in of ThixLauncher could not be fetched ({exception.Message}); trying again at the next start");
+            return null;
+        }
+
+        CloudHandoff.Remove(CloudApps.Clip);
+        if (login is null || IsConnected)
+        {
+            Log.Info("The sign-in of ThixLauncher was used or had expired");
+            return null;
+        }
+
+        await CompleteSignInAsync(url, login);
+        Log.Info("Connected with the sign-in of ThixLauncher");
+        return login.Account.DisplayName.Length > 0 ? login.Account.DisplayName : login.Account.UserName;
+    }
+
     /// <summary>Signs this computer out (the cloud forgets the device); the local history stays.</summary>
     public static async Task DisconnectAsync()
     {

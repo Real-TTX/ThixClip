@@ -234,6 +234,46 @@ public sealed class SyncServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Installed_by_ThixLauncher_ThixClip_connects_with_its_sign_in_once()
+    {
+        Assert.Null(await SyncService.ConnectFromLauncherAsync());
+        ClipService.CaptureText("schon da");
+        var handoff = new DeviceHandoff(Server, _cloud.LeaveHandoff("ANNA-PC"), FakeCloud.UserName, DateTimeOffset.UtcNow.AddDays(1));
+        CloudHandoff.Write(CloudApps.Clip, handoff);
+
+        Assert.NotNull(await SyncService.ConnectFromLauncherAsync());
+        SyncService.Stop();
+        Assert.True(SettingsService.Get().Cloud.IsConnected);
+        Assert.Equal(Server, SettingsService.Get().Cloud.ServerUrl);
+        Assert.False(CloudHandoff.Exists(CloudApps.Clip));
+        await SyncService.SyncOnceAsync();
+        Assert.Equal("schon da", Assert.Single(_cloud.Clips.Values).Text);
+
+        // connected already: a later hand-over is not used, only removed
+        CloudHandoff.Write(CloudApps.Clip, handoff with { PollToken = _cloud.LeaveHandoff("ANNA-PC") });
+        Assert.Null(await SyncService.ConnectFromLauncherAsync());
+        Assert.False(CloudHandoff.Exists(CloudApps.Clip));
+    }
+
+    [Fact]
+    public async Task A_sign_in_of_ThixLauncher_waits_while_the_cloud_is_away_and_goes_when_it_was_used()
+    {
+        var handoff = new DeviceHandoff(Server, _cloud.LeaveHandoff("ANNA-PC"), FakeCloud.UserName, DateTimeOffset.UtcNow.AddDays(1));
+        CloudHandoff.Write(CloudApps.Clip, handoff);
+
+        CloudClient.HandlerForTests = () => new UnreachableHandler();
+        Assert.Null(await SyncService.ConnectFromLauncherAsync());
+        Assert.True(CloudHandoff.Exists(CloudApps.Clip));
+
+        // used elsewhere (or expired at the cloud): removed, not connected, no error
+        CloudClient.HandlerForTests = () => _cloud;
+        _cloud.ExpireLink(_cloud.Links.Single().Key);
+        Assert.Null(await SyncService.ConnectFromLauncherAsync());
+        Assert.False(CloudHandoff.Exists(CloudApps.Clip));
+        Assert.False(SettingsService.Get().Cloud.IsConnected);
+    }
+
+    [Fact]
     public async Task The_cloud_policy_blocks_connecting()
     {
         AccessPolicy.UsePolicyReaderForTests(name => name == "DisableCloud");

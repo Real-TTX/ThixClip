@@ -94,6 +94,15 @@ public partial class App : Application
     /// </summary>
     private void EndProcess(int exitCode) => Dispatcher.UIThread.Post(() => _desktop?.Shutdown(exitCode));
 
+    /// <summary>Installed by ThixLauncher: its sign-in at MatCloud goes along (in the background; a cloud that does not answer changes nothing).</summary>
+    private async Task ConnectFromLauncherAsync()
+    {
+        if (await Task.Run(() => SyncService.ConnectFromLauncherAsync()) is { } account)
+        {
+            Ui.Post(() => _trayIcon?.ShowNotification("Mit der MatCloud verbunden", $"ThixClip gleicht deinen Verlauf jetzt mit der MatCloud ab (Konto {account}, angemeldet von ThixLauncher)."));
+        }
+    }
+
     private void Start(string[] args)
     {
         Dispatcher.UIThread.UnhandledException += OnUnhandledException;
@@ -112,6 +121,7 @@ public partial class App : Application
         ClipboardMonitor.Start();
         OcrService.Start();
         SyncService.Start();
+        _ = ConnectFromLauncherAsync();
 
         var startHidden = args.Contains(TrayArgument) || args.Contains(AutostartService.StartupArgument);
         if (!startHidden)

@@ -39,6 +39,18 @@ internal sealed class FakeCloud : HttpMessageHandler
     /// <summary>The person refuses the code in the browser.</summary>
     public void DenyLink(string code) => SetLinkState(code, DeviceLinkState.Denied);
 
+    /// <summary>ThixLauncher on this computer asks for a sign-in of ThixClip (already confirmed); returns the poll token it leaves for ThixClip.</summary>
+    public string LeaveHandoff(string deviceName)
+    {
+        lock (_gate)
+        {
+            var code = $"HND{Links.Count}-7MPA";
+            var link = new Link(code, Guid.NewGuid().ToString(), deviceName, DeviceLinkState.Approved);
+            Links[code] = link;
+            return link.PollToken;
+        }
+    }
+
     /// <summary>The code got too old.</summary>
     public void ExpireLink(string code) => SetLinkState(code, DeviceLinkState.Expired);
 

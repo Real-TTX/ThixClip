@@ -27,7 +27,7 @@ rules DESK, TRAY and SETUP (MatDesign docs/DESKTOP.md).
   `THIXCLIP_SCREENSHOTS=<folder>` screenshots of every page in light and dark – look at them). Tests never touch the real
   history, settings, clipboard, Keychain, registry values or LaunchAgents (`TestData`).
   `FakeCloud` is MatCloud with the clip module in memory: password and browser sign-in (`ApproveLink` / `DenyLink` /
-  `ExpireLink` play the person in the browser), `/api/v1/clip/settings`, changes, a real long poll, push, images.
+  `ExpireLink` play the person in the browser, `LeaveHandoff` plays ThixLauncher; the hand-overs live in the test folder), `/api/v1/clip/settings`, changes, a real long poll, push, images.
   `THIXCLIP_CLOUD_URL` / `_USER` / `_PASSWORD` enable `CloudEndToEndTests` (two devices against a real MatCloud, e.g. the local
   stack, an account with a password).
 - **The cloud is MatCloud** (`../MatCloud`, its own tests and docs). Run it locally – always rebuilt and redeployed –
@@ -67,7 +67,7 @@ rules DESK, TRAY and SETUP (MatDesign docs/DESKTOP.md).
 src/ThixClip.Core     (no UI) models, business layer (static classes), infrastructure, native code
   MatCloud/           COPY of MatCloud's contract (never edited here, see Build / run / test): CloudContract (sign-in routes, protocol
                       header X-MatCloud-Protocol, JSON options), CloudApps ("clip"), DeviceLogin/DeviceLink* DTOs, AccountInfo, ApiError,
-                      WaitResult, MatCloudClient + CloudException, Sync.cs (the general sync, unused by ThixClip),
+                      WaitResult, MatCloudClient + CloudException, CloudHandoff (the sign-in ThixLauncher leaves for ThixClip), Sync.cs (the general sync, unused by ThixClip),
                       Clip/ClipContract (routes /api/v1/clip/...: Settings, Changes, Wait, Push, Image, Thumbnail; ClipDto, ClipChangeSet,
                       ClipPush*, ClipSettings, limits, retention choices), Clip/ClearRange (the ranges of "Verlauf löschen", the same in the browser)
   Models/             ClipEntry (immutable record; OcrState, SyncState), AppSettings (+ CloudSettings), ClipQuery, Hotkey, BusinessException
@@ -75,7 +75,8 @@ src/ThixClip.Core     (no UI) models, business layer (static classes), infrastru
                       favourite/pin/delete, ClearHistory(ClearRange) by last copy time, BrowserLink / ReadImageToView for the viewer (AppPaths.OpenDirectory: files of old versions, emptied at start), retention, the sync hooks), ClipboardMonitor (polls the change counter, 250 ms),
                       OcrService (queue), HotkeyService (parse/format/display/validate, registration), SettingsService,
                       SyncService (sign-in in the browser: ConnectInBrowserAsync -> code via onCode, page via openAddress, wait for the
-                      confirmation; or ConnectAsync with user name and password; after either GET clip settings = the account's retention;
+                      confirmation; or ConnectAsync with user name and password; or ConnectFromLauncherAsync at start: the sign-in
+                      ThixLauncher left when it installed ThixClip (CloudHandoff, used once, kept while the cloud does not answer; a toast says so); after either GET clip settings = the account's retention;
                       PushRetentionAsync = PUT clip settings; disconnect; the loop: push -> upload images -> pull -> download images -> long poll),
                       AccessPolicy (LockConfiguration, DisableCloud, DisableUpdates), AutostartService (HKCU Run / LaunchAgent),
                       RecordingService (pause: 15/30 min, 1 h stored with its end, until restart in memory, until resumed),

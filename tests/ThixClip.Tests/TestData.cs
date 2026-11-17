@@ -1,3 +1,4 @@
+using MatCloud.Contract;
 using ThixClip.Core.Business;
 using ThixClip.Core.Infrastructure;
 using ThixClip.Core.Platform;
@@ -24,6 +25,7 @@ internal sealed class TestData : IDisposable
         ClipboardMonitor.ResetForTests();
         RecordingService.ResetForTests();
         TokenStore.UseMemoryForTests(true);
+        CloudHandoff.Folder = Path.Combine(Folder, "handoff"); // never the sign-in a real ThixLauncher left
         AccessPolicy.UsePolicyReaderForTests(_ => false);
         Clipboard = new FakeClipboard();
         NativeClipboard.UseForTests(Clipboard);
@@ -46,6 +48,7 @@ internal sealed class TestData : IDisposable
         NativeClipboard.UseForTests(null);
         AccessPolicy.UsePolicyReaderForTests(null);
         TokenStore.UseMemoryForTests(false);
+        CloudHandoff.Folder = CloudHandoff.DefaultFolder();
         ClipService.ResetForTests();
         RecordingService.ResetForTests();
         SettingsStore.Reset();
