@@ -82,6 +82,19 @@ starten (rund 38 MB). Installiert pro Benutzer nach `%LocalAppData%\Programs\Thi
 Startmenü, „Installierte Apps“, optional Autostart, Desktop-Verknüpfung und automatischen Updates (vorausgewählt).
 Deinstallieren über „Installierte Apps“.
 
+**Ohne Fenster** (ThixLauncher, ThixInstall, Administratoren) – die Optionen des Setups als Argumente (MatDesign SETUP-05/08;
+was angeboten wird, steht in `src/ThixClip.Core/installer.json` und im Update-Manifest unter `installer`):
+
+```
+ThixClipSetup.exe --quiet --desktop-shortcut=yes --autostart=no --automatic-updates=yes [--start]
+ThixClip.exe --configure --autostart=yes        # nur anwenden (macOS: nach dem Kopieren des Bundles)
+ThixClip.exe --uninstall --quiet
+```
+
+Nicht angegebene Optionen: bei der Erstinstallation der Standard (Autostart und automatische Updates an,
+Desktop-Verknüpfung aus), bei einem Update bleibt es, wie es ist. ThixClip öffnet keine Dateien: `--file-types` nimmt nur
+`none` oder `default`. Ein falscher Wert bricht mit Exit-Code 2 ab, ohne etwas zu installieren.
+
 **macOS** – `ThixClip-macOS-arm64.dmg` (Apple Silicon) bzw. `-x64.dmg` (Intel) öffnen und ThixClip in „Programme“ ziehen.
 ThixClip lebt in der Menüleiste. Zum Einfügen in andere Apps fragt macOS einmal nach der Erlaubnis
 „Bedienungshilfen“ (ohne sie wird nur kopiert). Die App ist (noch) ad hoc signiert: beim ersten Start Rechtsklick › Öffnen.

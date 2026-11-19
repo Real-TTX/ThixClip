@@ -70,7 +70,8 @@ src/ThixClip.Core     (no UI) models, business layer (static classes), infrastru
                       WaitResult, MatCloudClient + CloudException, CloudHandoff (the sign-in ThixLauncher leaves for ThixClip), Sync.cs (the general sync, unused by ThixClip),
                       Clip/ClipContract (routes /api/v1/clip/...: Settings, Changes, Wait, Push, Image, Thumbnail; ClipDto, ClipChangeSet,
                       ClipPush*, ClipSettings, limits, retention choices), Clip/ClearRange (the ranges of "Verlauf löschen", the same in the browser)
-  Models/             ClipEntry (immutable record; OcrState, SyncState), AppSettings (+ CloudSettings), ClipQuery, Hotkey, BusinessException
+  Models/             ClipEntry (immutable record; OcrState, SyncState), AppSettings (+ CloudSettings), ClipQuery, Hotkey, BusinessException,
+                      InstallerConfig (+ InstallerSwitch, InstallerFileType, InstallChoices, SetupAction, SetupRequest)
   Business/           ClipService (the history in memory + HistoryStore: capture, dedupe by content hash, query/search incl. OCR,
                       favourite/pin/delete, ClearHistory(ClearRange) by last copy time, BrowserLink / ReadImageToView for the viewer (AppPaths.OpenDirectory: files of old versions, emptied at start), retention, the sync hooks), ClipboardMonitor (polls the change counter, 250 ms),
                       OcrService (queue), HotkeyService (parse/format/display/validate, registration), SettingsService,
@@ -81,6 +82,12 @@ src/ThixClip.Core     (no UI) models, business layer (static classes), infrastru
                       AccessPolicy (LockConfiguration, DisableCloud, DisableUpdates), AutostartService (HKCU Run / LaunchAgent),
                       RecordingService (pause: 15/30 min, 1 h stored with its end, until restart in memory, until resumed),
                       InstallService (Windows self-installing exe), UpdateService + MacAppBundle (OTA from GitHub releases),
+                      InstallerOptions (SETUP-08 of MatDesign: installer.json – embedded, and as "installer" in the update
+                      manifest – says what the setup offers: desktop shortcut, autostart, automatic updates, no file types
+                      ("fileTypes": [], ThixClip opens no files); the command line --quiet / --update / --configure
+                      [--desktop-shortcut=yes|no --autostart=yes|no --automatic-updates=yes|no --file-types=none|default]
+                      [--start], a wrong value = exit code 2, nothing installed; a bare --autostart stays the start at sign-in;
+                      Current/Apply; the setup assistant's switches come from it (ThixClipSetup.Options/Choices)),
                       SampleHistory (the mockup's history, drawn with Skia: UI tests and snapshots, only into a test/temp folder)
   Infrastructure/     HistoryStore (SQLite history.db: ClipEntry, ClipImage), SettingsStore (settings.json), ImageCodec (SkiaSharp:
                       normalise to PNG, DIB in/out, thumbnails), CloudClient (thin wrapper around MatCloudClient: app "clip", User-Agent "ThixClip/<version> (<platform>)", the clip routes;

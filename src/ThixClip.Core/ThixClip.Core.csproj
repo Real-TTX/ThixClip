@@ -20,6 +20,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- What the setup offers (SETUP-08): read by InstallerOptions, published in the update manifest by CI -->
+    <EmbeddedResource Include="installer.json" LogicalName="installer.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.15" />
     <PackageReference Include="SkiaSharp" Version="2.88.9" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.15" />

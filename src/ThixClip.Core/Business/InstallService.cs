@@ -2,27 +2,25 @@ using System.Diagnostics;
 using System.Runtime.Versioning;
 using Microsoft.Win32;
 using ThixClip.Core.Infrastructure;
+using ThixClip.Core.Models;
 
 namespace ThixClip.Core.Business;
-
-/// <summary>What the setup decides on a first installation. An update keeps what is installed.</summary>
-/// <summary>The choices of the setup assistant; an update (null) keeps what the user has.</summary>
-public sealed record InstallOptions(bool StartWithWindows, bool DesktopShortcut, bool InstallUpdatesAutomatically = true);
 
 /// <summary>
 /// Windows only (macOS: the app bundle, <see cref="MacAppBundle"/>). ThixClip installs itself - like ThixTunnel, the
 /// Matgate agent and the MatMon setup - without a separate installer tool.
 /// The published ThixClip.exe is the setup: started from anywhere else it copies itself to
 /// %LocalAppData%\Programs\ThixClip (per user, no administrator rights), creates the Start menu entry, the entry in
-/// "Installierte Apps" and optionally the autostart and a desktop shortcut. "--uninstall" removes every one of them.
+/// "Installierte Apps" and – as the install options say (InstallerOptions, SETUP-08) – the autostart, a desktop shortcut
+/// and automatic updates. "--uninstall" removes every one of them.
 /// User data (%LocalAppData%\ThixClip: history, settings) stays unless the user explicitly deletes it while uninstalling.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public static class InstallService
 {
-    public const string UpdateArgument = UpdateService.WindowsUpdateArgument;
-    public const string UninstallArgument = "--uninstall";
-    public const string QuietArgument = "--quiet";
+    public const string UpdateArgument = InstallerOptions.UpdateArgument;
+    public const string UninstallArgument = InstallerOptions.UninstallArgument;
+    public const string QuietArgument = InstallerOptions.QuietArgument;
     public const string ExecutableName = "ThixClip.exe";
 
     /// <summary>A running ThixClip listens for this signal and ends itself cleanly.</summary>
@@ -70,11 +68,13 @@ public static class InstallService
         string.Equals(Path.GetFullPath(path), Path.GetFullPath(InstalledExecutable), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Installs or updates. <paramref name="options"/> null = update: shortcuts and autostart stay as they are.
+    /// Installs or updates with the install options (SETUP-08): what <paramref name="choices"/> leaves open (null, or a value of
+    /// null) an installed ThixClip keeps as it is and a first install takes from installer.json.
     /// </summary>
-    public static void Install(string sourceExecutable, InstallOptions? options, Action<string> log)
+    public static void Install(string sourceExecutable, InstallChoices? choices, Action<string> log)
     {
-        var isUpdate = options is null;
+        var isUpdate = IsInstalled;
+        var wanted = (choices ?? new InstallChoices()).Over(isUpdate ? InstallerOptions.Current() : InstallerOptions.Defaults);
         log(isUpdate ? $"Aktualisiere ThixClip in {ProgramFolder}" : $"Installiere ThixClip nach {ProgramFolder}");
         StopRunningInstances(log);
 
@@ -88,28 +88,8 @@ public static class InstallService
         CreateShortcut(StartMenuShortcut, "Zwischenablage-Verlauf");
         log("Startmenü-Eintrag angelegt");
 
-        var wantsDesktopShortcut = options?.DesktopShortcut ?? HasDesktopShortcut;
-        if (wantsDesktopShortcut)
-        {
-            CreateShortcut(DesktopShortcut, "Zwischenablage-Verlauf");
-            log("Desktop-Verknüpfung angelegt");
-        }
-
-        if (_testLocations is null)
-        {
-            // An update keeps the autostart as the user left it, but points it at the installed file.
-            var wantsAutostart = options?.StartWithWindows ?? AutostartService.IsEnabled();
-            if (wantsAutostart)
-            {
-                AutostartService.WriteEntry(InstalledExecutable);
-                log("Autostart bei der Windows-Anmeldung eingerichtet");
-            }
-        }
-
-        if (options is not null)
-        {
-            ApplyUpdateChoice(options.InstallUpdatesAutomatically, log);
-        }
+        // also an update writes them again: the autostart points at the installed file
+        InstallerOptions.Apply(wanted, InstalledExecutable, log);
 
         WriteUninstallEntry();
         log("Eintrag unter „Installierte Apps“ geschrieben");
@@ -126,11 +106,8 @@ public static class InstallService
         log("Entferne ThixClip");
         StopRunningInstances(log);
 
-        if (_testLocations is null)
-        {
-            AutostartService.RemoveEntry();
-            log("Autostart entfernt");
-        }
+        AutostartService.RemoveEntry();
+        log("Autostart entfernt");
 
         DeleteFile(StartMenuShortcut);
         DeleteFile(DesktopShortcut);
@@ -240,17 +217,16 @@ public static class InstallService
         }
     }
 
-    /// <summary>"Updates automatisch installieren" of the setup; a locked configuration (policy) keeps its value.</summary>
-    private static void ApplyUpdateChoice(bool installAutomatically, Action<string> log)
+    /// <summary>The desktop shortcut on or off (install options).</summary>
+    internal static void SetDesktopShortcut(bool wanted)
     {
-        try
+        if (wanted)
         {
-            SettingsService.Update(settings => settings with { InstallUpdatesAutomatically = installAutomatically });
-            log(installAutomatically ? "Updates werden automatisch installiert" : "Updates werden nur angeboten");
+            CreateShortcut(DesktopShortcut, "Zwischenablage-Verlauf");
         }
-        catch (Models.BusinessException exception)
+        else
         {
-            log(exception.Message);
+            DeleteFile(DesktopShortcut);
         }
     }
 
