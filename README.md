@@ -27,7 +27,8 @@
 - **Im Look der Mat-Familie**: Farben, Symbole, Titelleiste, Menü, Tray, Benachrichtigungen und Setup kommen aus
   **MatDesktop**, dem Desktop-Toolkit von MatDesign (hell, dunkel oder wie das System).
 - **Tray / Menüleiste**, **Autostart**, **Setup** (Windows) bzw. **App-Bundle + DMG** (macOS), **OTA-Updates** mit
-  optionalem **Full-Auto-Update**.
+  optionalem **Full-Auto-Update**. Nach „Update installieren“ kommt ThixClip mit seinem Fenster zurück, ein Update im
+  Hintergrund startet es wieder still im Tray.
 - **MatCloud** (die Cloud der Thix-Apps, eigenes Repository, Docker, Port 4950): Einträge, Favoriten und Löschungen werden
   zwischen allen Geräten abgeglichen, im Browser liest, sucht, kopiert und ergänzt man den Verlauf auch unterwegs.
   Angemeldet wird **im Browser** (jedes Konto der MatCloud, auch eines über MatIdentity ohne Passwort): ThixClip zeigt einen

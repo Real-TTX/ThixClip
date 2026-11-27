@@ -81,7 +81,10 @@ src/ThixClip.Core     (no UI) models, business layer (static classes), infrastru
                       PushRetentionAsync = PUT clip settings; disconnect; the loop: push -> upload images -> pull -> download images -> long poll),
                       AccessPolicy (LockConfiguration, DisableCloud, DisableUpdates), AutostartService (HKCU Run / LaunchAgent),
                       RecordingService (pause: 15/30 min, 1 h stored with its end, until restart in memory, until resumed),
-                      InstallService (Windows self-installing exe), UpdateService + MacAppBundle (OTA from GitHub releases),
+                      InstallService (Windows self-installing exe), UpdateService + MacAppBundle (OTA from GitHub releases;
+                      the update restarts ThixClip with "--tray" - an update asked for in the window or with the window open leaves
+                      the marker "show-window-after-update" in the update folder (ShowWindowAfterUpdate, written before the
+                      installer starts, stale after 15 min) and the restart shows the window once; a background update stays in the tray),
                       InstallerOptions (SETUP-08 of MatDesign: installer.json – embedded, and as "installer" in the update
                       manifest – says what the setup offers: desktop shortcut, autostart, automatic updates, no file types
                       ("fileTypes": [], ThixClip opens no files); the command line --quiet / --update / --configure
